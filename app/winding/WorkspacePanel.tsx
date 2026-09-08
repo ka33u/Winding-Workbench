@@ -87,7 +87,7 @@ export function WorkspacePanel({
           area.current?.querySelector(`[data-coil-anchor="${id}"]`) ??
           area.current?.querySelector(`[data-coil-id="${id}"]`);
         target?.scrollIntoView({
-          block: 'nearest',
+          block: 'center',
           inline: 'center',
           behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
             ? 'auto'
