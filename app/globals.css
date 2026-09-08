@@ -233,6 +233,15 @@ h1 {
   border-color: #3563d6;
   outline: 3px solid #3563d614;
 }
+.field input:disabled {
+  background: #f1f5f8;
+  color: #526477;
+  cursor: default;
+  opacity: 1;
+}
+.pitch-mode {
+  margin-bottom: 14px;
+}
 .field input[aria-invalid='true'] {
   border-color: #ce5b4c;
 }

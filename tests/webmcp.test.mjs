@@ -4,10 +4,13 @@ import { windingTools } from '../lib/webmcp.ts';
 import { generate, DEFAULTS } from '../lib/winding.ts';
 test('WebMCP contract changes the same design state only after validated generation', () => {
   let result = generate(DEFAULTS),
-    phase = 'all';
+    phase = 'all',
+    automatic = false;
   const tools = windingTools({
-    apply: (p, r) => {
+    apply: (p, r, auto) => {
+      assert.deepEqual(p, r.design.params);
       result = r;
+      automatic = auto;
     },
     read: () => ({ result, phase }),
     showPhase: (p) => {
@@ -26,6 +29,7 @@ test('WebMCP contract changes the same design state only after validated generat
     pitch: 1,
   });
   assert.equal(out.ok, true);
+  assert.equal(automatic, false);
   assert.equal(tools[1].execute({}).params.slots, 12);
   const before = result;
   assert.equal(
@@ -47,4 +51,20 @@ test('WebMCP contract changes the same design state only after validated generat
   assert.equal(tools[2].execute({ phase: 'X' }).ok, false);
   assert.equal(phase, 'W');
   assert.equal(tools[1].annotations.readOnlyHint, true);
+  const inferred = tools[0].execute({
+    slots: 36,
+    poles: 4,
+    paths: 2,
+    layers: 2,
+  });
+  assert.equal(inferred.ok, true);
+  assert.equal(inferred.params.pitch, 9);
+  assert.equal(automatic, true);
+  const beforeInvalidPitch = result;
+  assert.equal(
+    tools[0].execute({ slots: 36, poles: 4, paths: 2, layers: 2, pitch: null })
+      .ok,
+    false,
+  );
+  assert.equal(result, beforeInvalidPitch);
 });

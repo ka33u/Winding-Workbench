@@ -21,6 +21,7 @@ import { Choice } from './winding/Choice';
 import { WorkspacePanel } from './winding/WorkspacePanel';
 import { Analysis } from './winding/Analysis';
 import { decodeProject, encodeProject } from '@/lib/project';
+import { generateAuto } from '@/lib/autopitch';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { windingTools, type ModelContext } from '@/lib/webmcp';
@@ -45,8 +46,11 @@ import {
 } from '@/lib/winding';
 
 export default function Home() {
-  const [params, setParams] = useState<Params>({ ...DEFAULTS });
-  const [result, setResult] = useState(() => generate(DEFAULTS));
+  const [result, setResult] = useState(() => generateAuto(DEFAULTS));
+  const [params, setParams] = useState<Params>(() =>
+    result.ok ? result.design.params : { ...DEFAULTS },
+  );
+  const [automaticPitch, setAutomaticPitch] = useState(true);
   const [phase, setPhase] = useState<Phase | 'all'>('all');
   const [changed, setChanged] = useState(false);
   const [notice, setNotice] = useState('');
@@ -71,10 +75,11 @@ export default function Home() {
     if (!context?.registerTool) return;
     const lifecycle = new AbortController();
     const actions = {
-      apply: (p: Params, r: ReturnType<typeof generate>) =>
+      apply: (p: Params, r: ReturnType<typeof generate>, automatic: boolean) =>
         flushSync(() => {
           setParams(p);
           setResult(r);
+          setAutomaticPitch(automatic);
           setChanged(false);
         }),
       read: () => ({ result: resultRef.current, phase: phaseRef.current }),
@@ -119,9 +124,11 @@ export default function Home() {
     setParams((p) => ({ ...p, [k]: v }));
     setChanged(true);
   }
-  function run(p = params) {
-    setParams({ ...p });
-    setResult(generate(p));
+  function run(p = params, automatic = false) {
+    const next = automatic ? generateAuto(p) : generate(p);
+    setParams(next.ok ? next.design.params : { ...p });
+    setResult(next);
+    setAutomaticPitch(automatic);
     setChanged(false);
   }
   return (
@@ -193,7 +200,7 @@ export default function Home() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              run();
+              run(params, automaticPitch);
             }}
             noValidate
           >
@@ -256,14 +263,42 @@ export default function Home() {
                 <Layers3 size={16} />
                 绕组配置
               </h2>
+              <div className="field full pitch-mode">
+                <span>节距选择</span>
+                <Choice
+                  label="节距选择"
+                  value={automaticPitch ? 'auto' : 'manual'}
+                  options={[
+                    ['auto', '自动 · 接近一个极距'],
+                    ['manual', '手动指定节距'],
+                  ]}
+                  onChange={(v) => {
+                    setAutomaticPitch(v === 'auto');
+                    setChanged(true);
+                  }}
+                />
+              </div>
               <div className="field-grid">
                 <label className="field">
                   <span>
-                    线圈节距<i>y</i>
+                    {automaticPitch ? '已生成节距' : '线圈节距'}
+                    <i>y</i>
                   </span>
                   <input
                     type="number"
-                    value={Number.isNaN(params.pitch) ? '' : params.pitch}
+                    disabled={automaticPitch}
+                    aria-describedby="pitch-guidance"
+                    aria-invalid={
+                      !result.ok &&
+                      result.issues.some((i) => i.field === 'pitch')
+                    }
+                    value={
+                      automaticPitch
+                        ? (design?.params.pitch ?? '')
+                        : Number.isNaN(params.pitch)
+                          ? ''
+                          : params.pitch
+                    }
                     onChange={(e) =>
                       update(
                         'pitch',
@@ -288,7 +323,11 @@ export default function Home() {
                   />
                 </label>
               </div>
-              <p className="field-note">节距按槽数之差计：1 → 9 为 8 槽。</p>
+              <p className="field-note" id="pitch-guidance">
+                {automaticPitch
+                  ? '从不超过一极距的最大整槽节距向下检查，采用首个有效方案；单层仅选奇数，极距不足一槽时试 1 槽。此规则不优化谐波或端部长度。'
+                  : '节距按槽数之差计：1 → 9 为 8 槽。'}
+              </p>
               <div className="field full">
                 <span>端子接法</span>
                 <Choice
@@ -358,7 +397,7 @@ export default function Home() {
             <button
               type="button"
               className="reset-button"
-              onClick={() => run(DEFAULTS)}
+              onClick={() => run(DEFAULTS, true)}
             >
               <RotateCcw size={14} />
               恢复默认参数

@@ -5,8 +5,9 @@ import {
   type Phase,
   type Result,
 } from './winding.ts';
+import { generateAuto } from './autopitch.ts';
 export type WindingActions = {
-  apply: (p: Params, r: Result) => void;
+  apply: (p: Params, r: Result, automaticPitch: boolean) => void;
   read: () => { result: Result; phase: Phase | 'all' };
   showPhase: (p: Phase | 'all') => void;
 };
@@ -30,7 +31,7 @@ export function windingTools(actions: WindingActions): BrowserTool[] {
       name: 'generate_winding',
       title: '生成电机绕组',
       description:
-        '校验参数并在工作台生成线圈及电气连接，失败时返回错误码，不覆盖当前有效方案。',
+        '校验参数并在工作台生成线圈及电气连接；省略 pitch 时自动选择节距。失败时返回错误码，不覆盖当前有效方案。',
       inputSchema: {
         type: 'object',
         properties: {
@@ -45,7 +46,7 @@ export function windingTools(actions: WindingActions): BrowserTool[] {
           frequency: { type: 'number' },
           current: { type: 'number' },
         },
-        required: ['slots', 'poles', 'paths', 'layers', 'pitch'],
+        required: ['slots', 'poles', 'paths', 'layers'],
         additionalProperties: false,
       },
       annotations: { readOnlyHint: false, untrustedContentHint: false },
@@ -55,15 +56,14 @@ export function windingTools(actions: WindingActions): BrowserTool[] {
         const values = input as Record<string, unknown>;
         if (
           Object.keys(values).some((k) => !(k in DEFAULTS)) ||
-          ['slots', 'poles', 'paths', 'layers', 'pitch'].some(
-            (k) => !(k in values),
-          )
+          ['slots', 'poles', 'paths', 'layers'].some((k) => !(k in values))
         )
           return { ok: false, code: 'E_INPUT_SCHEMA' };
         const p = { ...DEFAULTS, ...values } as Params,
-          r = generate(p);
+          automaticPitch = !Object.hasOwn(values, 'pitch'),
+          r = automaticPitch ? generateAuto(p) : generate(p);
         if (!r.ok) return r;
-        actions.apply(p, r);
+        actions.apply(r.design.params, r, automaticPitch);
         return {
           ok: true,
           params: r.design.params,
