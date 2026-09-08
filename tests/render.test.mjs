@@ -1,0 +1,86 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { build } from 'esbuild';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { renderToStaticMarkup } from 'react-dom/server';
+import React from 'react';
+import { generate, DEFAULTS, PRESETS } from '../lib/winding.ts';
+const result = await build({
+  entryPoints: ['app/winding/Diagram.tsx'],
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  write: false,
+  packages: 'external',
+  tsconfig: 'tsconfig.json',
+});
+await mkdir('.test-output', { recursive: true });
+await writeFile('.test-output/diagram.mjs', result.outputFiles[0].text);
+const { Diagram } = await import('../.test-output/diagram.mjs');
+test('SVG serialization contains correct coil targets for every view and phase filter', () => {
+  for (const preset of PRESETS) {
+    const r = generate(preset.params);
+    assert.ok(r.ok);
+    const d = r.design;
+    for (const view of ['linear', 'circuit', 'radial', 'phasor'])
+      for (const phase of ['all', 'U', 'V', 'W']) {
+        const html = renderToStaticMarkup(
+          React.createElement(Diagram, { design: d, phase, view }),
+        );
+        assert.match(html, /<svg/);
+        assert.doesNotMatch(html, /NaN|Infinity|undefined/);
+        for (const c of d.coils) {
+          const present = html.includes(`aria-label="${c.id}：`);
+          assert.equal(
+            present,
+            phase === 'all' || c.phase === phase,
+            `${view}/${phase}/${c.id}`,
+          );
+        }
+        assert.match(html, /aria-label=/);
+      }
+  }
+});
+test('path and layer filters affect layout; circuit view retains complete series branches', () => {
+  const r = generate({ ...DEFAULTS, layers: 4 });
+  assert.ok(r.ok);
+  for (const view of ['linear', 'circuit']) {
+    const html = renderToStaticMarkup(
+      React.createElement(Diagram, {
+        design: r.design,
+        phase: 'V',
+        path: 1,
+        layerPair: 2,
+        view,
+      }),
+    );
+    for (const c of r.design.coils) {
+      const expected =
+        c.phase === 'V' &&
+        c.path === 1 &&
+        (view === 'circuit' || Math.ceil(c.goLayer / 2) === 2);
+      assert.equal(html.includes(`aria-label="${c.id}：`), expected);
+    }
+  }
+});
+test('delta and star electrical view end nodes match exported netlist', () => {
+  for (const connection of ['star', 'delta']) {
+    const r = generate({ ...DEFAULTS, connection });
+    assert.ok(r.ok);
+    const html = renderToStaticMarkup(
+      React.createElement(Diagram, {
+        design: r.design,
+        phase: 'all',
+        view: 'circuit',
+      }),
+    );
+    for (const [phase, next] of [
+      ['U', 'L2'],
+      ['V', 'L3'],
+      ['W', 'L1'],
+    ])
+      assert.ok(
+        html.includes(`${phase}2 / ${connection === 'star' ? 'N' : next}`),
+      );
+  }
+});

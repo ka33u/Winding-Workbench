@@ -1,0 +1,419 @@
+'use client';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Download, FileJson, Focus, Minus, Plus, Route, X } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+} from '@/components/ui/pagination';
+import { PHASES, COLORS, type Phase, type Winding } from '@/lib/winding';
+import { coilCSV, download, encodeProject } from '@/lib/project';
+import { Diagram, VIEWS, visibleCoils, type View } from './Diagram';
+import { Choice } from './Choice';
+
+export function WorkspacePanel({
+  design,
+  phase,
+  setPhase,
+  notify,
+}: {
+  design: Winding;
+  phase: Phase | 'all';
+  setPhase: (v: Phase | 'all') => void;
+  notify: (s: string) => void;
+}) {
+  const [view, setView] = useState<View>('linear'),
+    [path, setPath] = useState(0),
+    [pair, setPair] = useState(0),
+    [zoom, setZoom] = useState(1),
+    [animate, setAnimate] = useState(false),
+    [selected, setSelected] = useState<string | null>(null),
+    [page, setPage] = useState(0);
+  const area = useRef<HTMLDivElement>(null);
+  const effectivePair = view === 'circuit' ? 0 : pair;
+  const coils = useMemo(
+    () =>
+      visibleCoils(design, phase, path, effectivePair).sort(
+        (a, b) =>
+          PHASES.indexOf(a.phase) - PHASES.indexOf(b.phase) ||
+          a.path - b.path ||
+          a.order - b.order,
+      ),
+    [design, phase, path, effectivePair],
+  );
+  const safePage = Math.min(
+    page,
+    Math.max(0, Math.ceil(coils.length / 30) - 1),
+  );
+  const selectedCoil = coils.find((c) => c.id === selected);
+  useEffect(() => {
+    const mq = matchMedia('(prefers-reduced-motion: reduce)');
+    const stop = () => {
+      if (mq.matches) setAnimate(false);
+    };
+    mq.addEventListener('change', stop);
+    return () => mq.removeEventListener('change', stop);
+  }, []);
+  function pick(id: string) {
+    setSelected(id === selected ? null : id);
+    const n = coils.findIndex((c) => c.id === id);
+    if (n >= 0) setPage(Math.floor(n / 30));
+    if (id !== selected)
+      requestAnimationFrame(() => {
+        area.current
+          ?.querySelector(`[data-coil-id="${id}"]`)
+          ?.scrollIntoView({
+            block: 'nearest',
+            inline: 'center',
+            behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
+              ? 'auto'
+              : 'smooth',
+          });
+      });
+  }
+  function exportSVG() {
+    const svg = area.current
+      ?.querySelector('svg[data-export-diagram]')
+      ?.cloneNode(true) as SVGElement | undefined;
+    if (!svg) {
+      notify('当前视图尚未就绪，请稍后重试。');
+      return;
+    }
+    svg.removeAttribute('style');
+    svg.setAttribute('width', svg.getAttribute('viewBox')!.split(' ')[2]);
+    svg.setAttribute('height', svg.getAttribute('viewBox')!.split(' ')[3]);
+    svg.querySelectorAll('.trace-line').forEach((el) => el.remove());
+    svg
+      .querySelectorAll('[tabindex]')
+      .forEach((el) => el.removeAttribute('tabindex'));
+    download(
+      '<?xml version="1.0" encoding="UTF-8"?>\n' +
+        new XMLSerializer().serializeToString(svg),
+      `绕组_${design.params.slots}槽${design.params.poles}极_${view}_${phase}.svg`,
+      'image/svg+xml;charset=utf-8',
+    );
+    notify('已导出当前视图的 SVG 矢量图。');
+  }
+  return (
+    <>
+      <section className="drawing-card">
+        <div className="drawing-heading">
+          <div>
+            <span className="eyebrow">WINDING CANVAS</span>
+            <h3>
+              {VIEWS.find((v) => v[0] === view)?.[1]}
+              <span className="canvas-count">{coils.length} 个线圈</span>
+            </h3>
+          </div>
+          <div className="phase-filter" aria-label="显示相别">
+            {(['all', ...PHASES] as const).map((ph) => (
+              <button
+                key={ph}
+                aria-pressed={phase === ph}
+                onClick={() => {
+                  setPhase(ph);
+                  setPage(0);
+                  setSelected(null);
+                }}
+                className={phase === ph ? 'active' : ''}
+              >
+                {ph !== 'all' && <span style={{ background: COLORS[ph] }} />}
+                {ph === 'all' ? '全部相' : ph + ' 相'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Tabs
+          value={view}
+          onValueChange={(v) => {
+            setView(v as View);
+            setZoom(1);
+          }}
+        >
+          <div className="canvas-toolbar">
+            <TabsList className="view-tabs" variant="line">
+              {VIEWS.map(([v, label]) => (
+                <TabsTrigger value={v} key={v}>
+                  {label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            <div className="canvas-tools">
+              <div className="small-choice">
+                <Choice
+                  label="过滤并联支路"
+                  value={String(path)}
+                  options={[
+                    ['0', '全部支路'],
+                    ...Array.from(
+                      { length: design.params.paths },
+                      (_, i) =>
+                        [String(i + 1), `第 ${i + 1} 路`] as [string, string],
+                    ),
+                  ]}
+                  onChange={(v) => {
+                    setPath(Number(v));
+                    setPage(0);
+                    setSelected(null);
+                  }}
+                />
+              </div>
+              {design.params.layers > 2 && view !== 'circuit' && (
+                <div className="small-choice">
+                  <Choice
+                    label="过滤层对"
+                    value={String(pair)}
+                    options={[
+                      ['0', '全部层对'],
+                      ...Array.from(
+                        { length: design.params.layers / 2 },
+                        (_, i) =>
+                          [String(i + 1), `L${i * 2 + 1} / L${i * 2 + 2}`] as [
+                            string,
+                            string,
+                          ],
+                      ),
+                    ]}
+                    onChange={(v) => {
+                      setPair(Number(v));
+                      setPage(0);
+                      setSelected(null);
+                    }}
+                  />
+                </div>
+              )}
+              <div className="zoom-tools">
+                <button
+                  aria-label="缩小"
+                  className="icon-button"
+                  onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
+                  disabled={zoom <= 0.5}
+                >
+                  <Minus size={14} />
+                </button>
+                <button
+                  className="zoom-label"
+                  aria-label="恢复百分之百缩放"
+                  onClick={() => setZoom(1)}
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button
+                  aria-label="放大"
+                  className="icon-button"
+                  onClick={() => setZoom((z) => Math.min(2.5, z + 0.25))}
+                  disabled={zoom >= 2.5}
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div ref={area}>
+            {VIEWS.map(([v]) => (
+              <TabsContent key={v} value={v}>
+                <Diagram
+                  design={design}
+                  phase={phase}
+                  view={v}
+                  path={path}
+                  layerPair={pair}
+                  selected={selectedCoil?.id}
+                  onSelect={pick}
+                  zoom={zoom}
+                  animate={animate}
+                />
+              </TabsContent>
+            ))}
+          </div>
+        </Tabs>
+        <div className="drawing-footer">
+          <label className="motion-switch" htmlFor="trace-motion">
+            <Switch
+              id="trace-motion"
+              checked={animate}
+              onCheckedChange={setAnimate}
+              aria-label="线路追踪动效"
+            />
+            线路追踪
+          </label>
+          <span>滚动浏览 · 点击线圈定位</span>
+          <button className="quiet-button" onClick={exportSVG}>
+            <Download size={14} />
+            导出 SVG
+          </button>
+        </div>
+        {selectedCoil && (
+          <div className="coil-inspector">
+            <Route size={17} />
+            <strong style={{ color: COLORS[selectedCoil.phase] }}>
+              {selectedCoil.id}
+            </strong>
+            <span>
+              {selectedCoil.go}槽 L{selectedCoil.goLayer} → {selectedCoil.back}
+              槽 L{selectedCoil.backLayer}
+            </span>
+            <span>
+              {selectedCoil.turns}匝 · 第{selectedCoil.path}路 / 顺序
+              {selectedCoil.order}
+            </span>
+            <button
+              className="icon-button"
+              aria-label="取消线圈选择"
+              onClick={() => setSelected(null)}
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )}
+      </section>
+      <section className="panel coil-table-panel">
+        <div className="panel-title">
+          <h3>
+            <Focus size={17} />
+            线圈与接线明细
+            <span className="table-count">
+              {phase === 'all' ? '三相' : phase + '相'} · {coils.length} 个
+            </span>
+          </h3>
+          <div className="export-actions">
+            <button
+              className="quiet-button"
+              onClick={() => {
+                download(
+                  coilCSV(design, phase, path, effectivePair),
+                  `线圈表_${design.params.slots}槽${design.params.poles}极_${phase}.csv`,
+                  'text/csv;charset=utf-8',
+                );
+                notify('已导出筛选后的线圈表和电气节点。');
+              }}
+            >
+              <Download size={14} />
+              CSV
+            </button>
+            <button
+              className="quiet-button"
+              onClick={() => {
+                download(
+                  encodeProject(design),
+                  `绕组方案_${design.params.slots}槽${design.params.poles}极.json`,
+                  'application/json',
+                );
+                notify('已导出完整方案，可通过“打开方案”恢复。');
+              }}
+            >
+              <FileJson size={14} />
+              完整方案
+            </button>
+          </div>
+        </div>
+        <Table className="coil-table">
+          <TableHeader>
+            <TableRow>
+              {[
+                '线圈编号',
+                '相别 / 支路',
+                '去边（槽 / 层）',
+                '回边（槽 / 层）',
+                '匝数',
+                '串联次序',
+                '定位',
+              ].map((s) => (
+                <TableHead key={s}>{s}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {coils.slice(safePage * 30, (safePage + 1) * 30).map((c) => (
+              <TableRow
+                key={c.id}
+                data-state={selectedCoil?.id === c.id ? 'selected' : undefined}
+              >
+                <TableCell>
+                  <span style={{ color: COLORS[c.phase] }}>{c.id}</span>
+                </TableCell>
+                <TableCell>
+                  {c.phase} / {c.path}路
+                </TableCell>
+                <TableCell>
+                  {c.go} / L{c.goLayer}
+                </TableCell>
+                <TableCell>
+                  {c.back} / L{c.backLayer}
+                </TableCell>
+                <TableCell>{c.turns}</TableCell>
+                <TableCell>{c.order}</TableCell>
+                <TableCell>
+                  <button
+                    className="icon-button"
+                    onClick={() => pick(c.id)}
+                    aria-label={`在线路图定位 ${c.id}`}
+                  >
+                    <Focus size={15} />
+                  </button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <div className="table-footer">
+          <span>
+            显示 {coils.length ? safePage * 30 + 1 : 0}–
+            {Math.min((safePage + 1) * 30, coils.length)} / {coils.length}{' '}
+            个线圈
+          </span>
+          <Pagination aria-label="线圈表分页">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  text="上一页"
+                  aria-label="上一页"
+                  aria-disabled={safePage === 0}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setPage((p) => Math.max(0, p - 1));
+                  }}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <span className="page-number">
+                  {safePage + 1} / {Math.max(1, Math.ceil(coils.length / 30))}
+                </span>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  text="下一页"
+                  aria-label="下一页"
+                  aria-disabled={(safePage + 1) * 30 >= coils.length}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setPage((p) =>
+                      Math.min(
+                        Math.max(0, Math.ceil(coils.length / 30) - 1),
+                        p + 1,
+                      ),
+                    );
+                  }}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      </section>
+    </>
+  );
+}
