@@ -110,3 +110,16 @@ test('unrolled export exposes real connections and supports clean conductor-only
   );
   assert.equal((minimal.match(/data-coil-anchor=/g) || []).length, 12);
 });
+
+test('direction and terminal symbols are painted after all base wires and crossing bridges', () => {
+  const d = generate(DEFAULTS).design;
+  const html = renderToStaticMarkup(
+    React.createElement(Diagram, { design: d, phase: 'all', view: 'linear' }),
+  );
+  const overlay = html.indexOf('data-layer="direction-and-terminal-overlay"');
+  assert.ok(overlay > html.lastIndexOf('data-series-from='));
+  assert.ok(overlay > html.lastIndexOf('data-lead-coil='));
+  assert.ok(overlay > html.lastIndexOf('data-jump-route='));
+  assert.ok(html.indexOf('data-route-arrow=') > overlay);
+  assert.ok(html.includes('跨接拱桥表示跨线不相连'));
+});

@@ -1,4 +1,5 @@
 import { netlist, mod, type Coil, type Winding } from './winding.ts';
+import { decorateRoutes, type RouteDecoration } from './route-clearance.ts';
 
 export type Point = { x: number; y: number };
 export type CoilRoute = {
@@ -36,6 +37,9 @@ export type UnrolledLayout = {
   coils: CoilRoute[];
   links: SeriesRoute[];
   leads: LeadRoute[];
+  decorations: Record<string, RouteDecoration>;
+  fanoutTop: number;
+  fanoutBottom: number;
 };
 const same = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y) < 1e-6;
 export const polylinePath = (points: Point[]) =>
@@ -156,6 +160,15 @@ export function unrolledLayout(
       back: { x: backX, y: bottom },
     };
   });
+  // Route short spans first so nested crossovers sit below their inner connections.
+  // This removes avoidable crossings without changing the series order in the netlist.
+  const span = (link: (typeof rawLinks)[number]) => {
+    const length = Math.abs(
+      x(link.from.back, link.from.backLayer) - x(link.to.go, link.to.goLayer),
+    );
+    return Math.min(length, period - length);
+  };
+  rawLinks.sort((a, b) => span(a) - span(b));
   const lanes: [number, number][][] = [];
   const links = rawLinks.map((link): SeriesRoute => {
     const a = x(link.from.back, link.from.backLayer);
@@ -175,7 +188,7 @@ export function unrolledLayout(
     ]);
     let lane = lanes.findIndex((occupied) =>
       intervals.every(([lo, hi]) =>
-        occupied.every(([a, b]) => hi + 5 < a || b + 5 < lo),
+        occupied.every(([a, b]) => hi + 12 < a || b + 12 < lo),
       ),
     );
     if (lane < 0) {
@@ -183,21 +196,19 @@ export function unrolledLayout(
       lanes.push([]);
     }
     lanes[lane].push(...intervals);
-    const y = bottom + 28 + lane * (layers > 2 ? 7 : 9);
-    const shoulder = Math.sign(b - a) * Math.min(14, Math.abs(b - a) / 3);
+    const y = bottom + 32 + lane * 16;
     const points = [
       { x: a, y: bottom },
-      { x: a, y: bottom + 10 },
-      { x: a + shoulder, y },
-      { x: b - shoulder, y },
-      { x: b, y: bottom + 10 },
+      { x: a, y },
+      { x: b, y },
       { x: b, y: bottom },
     ];
     return { ...link, lane, pieces: periodicPieces(points, left, right) };
   });
-  const wireBottom =
-    bottom + 28 + Math.max(0, lanes.length - 1) * (layers > 2 ? 7 : 9);
-  const terminalY = Math.max(bottom + 215, wireBottom + 130);
+  const wireBottom = bottom + 32 + Math.max(0, lanes.length - 1) * 16;
+  const fanoutTop = wireBottom + 32;
+  const fanoutBottom = fanoutTop + 76;
+  const terminalY = fanoutBottom + 60;
   const leadAnchors = rawLeads
     .map((lead) => ({
       ...lead,
@@ -221,18 +232,32 @@ export function unrolledLayout(
       i === positions.length - 1 ? right - 32 : positions[i + 1] - 74,
     );
   const leads = leadAnchors.map(({ anchor, ...lead }, i): LeadRoute => {
-    const bend = wireBottom + 28 + (i % 6) * 8;
     return {
       ...lead,
       points: [
         { x: anchor, y: bottom },
-        { x: anchor, y: bend },
-        { x: positions[i], y: bend },
+        { x: anchor, y: fanoutTop },
+        { x: positions[i], y: fanoutBottom },
         { x: positions[i], y: terminalY },
       ],
     };
   });
+  const decorations = decorateRoutes([
+    ...links.map((link) => ({
+      id: link.node,
+      pieces: link.pieces,
+      arrows: true,
+    })),
+    ...leads.map((lead) => ({
+      id: `lead:${lead.coil.id}:${lead.side}`,
+      pieces: [lead.points],
+      arrows: false,
+    })),
+  ]);
   return {
+    decorations,
+    fanoutTop,
+    fanoutBottom,
     width,
     height: terminalY + 100,
     left,
