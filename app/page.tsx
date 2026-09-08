@@ -170,6 +170,8 @@ export default function Home() {
           />
           <button
             className="quiet-button"
+            aria-label="打开方案"
+            title="打开方案"
             onClick={() => fileInput.current?.click()}
           >
             <FolderOpen size={16} />
@@ -177,6 +179,8 @@ export default function Home() {
           </button>
           <button
             className="quiet-button"
+            aria-label="保存方案"
+            title="保存方案"
             onClick={save}
             disabled={!result.ok || changed}
           >

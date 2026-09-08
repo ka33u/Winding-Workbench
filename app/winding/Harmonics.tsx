@@ -1,5 +1,5 @@
 'use client';
-// Interactive inline SVG bars retain image and button semantics for assistive technology.
+// Interactive SVG bars remain individually accessible within the chart group.
 /* eslint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-tabindex */
 import { memo, useMemo, useState } from 'react';
 import { Activity } from 'lucide-react';
@@ -10,6 +10,7 @@ import {
   type HarmonicBasis,
 } from '@/lib/harmonics';
 import { Choice } from './Choice';
+import { moveGraphicFocus } from './keyboard';
 
 function HarmonicsPanel({
   design,
@@ -82,9 +83,10 @@ function HarmonicsPanel({
         <svg
           viewBox={`0 0 ${width} 282`}
           style={{ minWidth: width }}
-          role="img"
+          role="group"
           aria-label={`1至${maximum}次${basis === 'mechanical' ? '机械' : '电气'}空间谐波绕组系数`}
         >
+          <desc>方向键切换谐波阶次，Home / End 跳至首尾，Tab 离开图形。</desc>
           {[0, 0.25, 0.5, 0.75, 1].map((v) => (
             <g key={v}>
               <path
@@ -109,7 +111,8 @@ function HarmonicsPanel({
               <g
                 key={row.order}
                 role="button"
-                tabIndex={0}
+                tabIndex={chosen.order === row.order ? 0 : -1}
+                data-harmonic-order={row.order}
                 aria-label={`${basis === 'mechanical' ? '机械' : '电气'}${row.order}阶，${SEQUENCE_LABELS[row.sequence]}`}
                 aria-pressed={chosen.order === row.order}
                 onClick={() => setSelected(row.order)}
@@ -117,6 +120,9 @@ function HarmonicsPanel({
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     setSelected(row.order);
+                  } else {
+                    const order = moveGraphicFocus(e, 'data-harmonic-order');
+                    if (order !== null) setSelected(Number(order));
                   }
                 }}
                 className="harmonic-bar"

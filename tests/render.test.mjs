@@ -28,6 +28,12 @@ test('SVG serialization contains correct coil targets for every view and phase f
           React.createElement(Diagram, { design: d, phase, view }),
         );
         assert.match(html, /<svg/);
+        assert.match(html, /<svg[^>]*role="group"/);
+        assert.equal(
+          (html.match(/<g tabindex="0" role="button"/g) || []).length,
+          1,
+          `${view}/${phase}: one coil entry point for keyboard navigation`,
+        );
         assert.doesNotMatch(html, /NaN|Infinity|undefined/);
         for (const c of d.coils) {
           const present = html.includes(`aria-label="${c.id}：`);

@@ -104,12 +104,18 @@ export function WorkspacePanel({
       return;
     }
     svg.removeAttribute('style');
+    svg.setAttribute('role', 'img');
+    svg.querySelector('desc')?.remove();
     svg.setAttribute('width', svg.getAttribute('viewBox')!.split(' ')[2]);
     svg.setAttribute('height', svg.getAttribute('viewBox')!.split(' ')[3]);
     svg.querySelectorAll('.trace-line').forEach((el) => el.remove());
     svg
       .querySelectorAll('[tabindex]')
       .forEach((el) => el.removeAttribute('tabindex'));
+    svg.querySelectorAll('[role="button"]').forEach((el) => {
+      el.removeAttribute('role');
+      el.removeAttribute('aria-pressed');
+    });
     download(
       '<?xml version="1.0" encoding="UTF-8"?>\n' +
         new XMLSerializer().serializeToString(svg),
@@ -316,7 +322,7 @@ export function WorkspacePanel({
             />
             线路追踪
           </label>
-          <span>滚动浏览 · 点击线圈定位</span>
+          <span>滚动浏览 · 点击选择 · 方向键切换</span>
           <button className="quiet-button" onClick={exportSVG}>
             <Download size={14} />
             导出 SVG

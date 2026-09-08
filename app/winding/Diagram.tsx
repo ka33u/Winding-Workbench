@@ -1,7 +1,8 @@
 'use client';
-// SVG is an accessible image with interactive coil targets; its scroll region must be keyboard reachable.
+// Preserve interactive SVG descendants in the accessibility tree.
 /* eslint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-tabindex */
-import { useMemo, type KeyboardEvent } from 'react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
+import { moveGraphicFocus } from './keyboard';
 import { unrolledLayout } from '@/lib/unrolled';
 import { LinearWinding } from './LinearWinding';
 import {
@@ -71,17 +72,28 @@ export function Diagram({
     [design, cs, view],
   );
   const { slots, layers } = design.params;
+  const [focused, setFocused] = useState<string | null>(null);
+  const tabCoil =
+    cs.find((c) => c.id === focused)?.id ??
+    cs.find((c) => c.id === selected)?.id ??
+    cs[0]?.id;
   const hit = (c: Coil) => ({
-    tabIndex: 0,
+    tabIndex: c.id === tabCoil ? 0 : -1,
     role: 'button' as const,
     'data-coil-id': c.id,
     'aria-label': label(c),
     'aria-pressed': selected === c.id,
+    onFocus: () => setFocused(c.id),
     onClick: () => onSelect?.(c.id),
     onKeyDown: (e: KeyboardEvent<SVGGElement>) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         onSelect?.(c.id);
+      } else if (e.key === 'Escape' && selected) {
+        e.preventDefault();
+        onSelect?.(selected);
+      } else {
+        moveGraphicFocus(e, 'data-coil-id');
       }
     },
     className: 'coil-hit',
@@ -513,10 +525,11 @@ export function Diagram({
                 ? 700
                 : Math.min(width, 1500)) * zoom,
         }}
-        role="img"
+        role="group"
         aria-label={`${design.params.slots}槽${design.params.poles}极${VIEWS.find((x) => x[0] === view)?.[1]}，${phase === 'all' ? '全部相' : phase + '相'}`}
       >
         <title>{`${design.params.slots}槽${design.params.poles}极 ${VIEWS.find((x) => x[0] === view)?.[1]}`}</title>
+        <desc>方向键切换线圈，Home / End 跳至首尾，回车或空格选择，Esc 取消选择，Tab 离开图形。</desc>
         <defs>
           <pattern
             id={`grid-${view}`}

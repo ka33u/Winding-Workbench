@@ -42,3 +42,43 @@ Changing this to `block: center` brings the selected coil into view. Selecting
 cross-boundary U2-1 after the change showed its roof, slot conductors, continuation
 identifier and lead together. Horizontal centering and reduced-motion handling
 are preserved.
+
+## Keyboard and narrow-viewport follow-up
+
+The next goal turn audited current source and the prior browser evidence. The
+interactive winding and harmonic SVG roots used `role="img"`, and Chrome's
+accessibility tree had exposed only the entire image. Following the
+[W3C graphics structure guidance](https://www.w3.org/TR/graphics-aria-1.0/) and
+[keyboard focus guidance](https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/#kbd_roving_tabindex),
+the interactive roots now use named groups and preserve their button descendants.
+One coil or harmonic is in the Tab sequence at a time; arrow keys and Home/End
+navigate inside the graphic. Static SVG exports retain image semantics and omit
+keyboard instructions and button state.
+
+Verified in Chrome on the local development server:
+
+- Coil controls appeared individually in the accessibility tree, with coil ID,
+  slots, layers, turns, phase, branch and selected state.
+- Clicking U1-1 selected it. Right then Enter focused and selected U1-2 and updated
+  the inspector. Escape deselected it. One Tab moved to the crossover switch.
+- In the harmonic chart, Right changed order 1 to 2 and updated numerical values;
+  End selected order 25; Home restored order 1; Tab left the chart for the source link.
+- DevTools Device Mode was set to width 390 and height 844 (both verified in its
+  controls). The diagram fit to width at 28%; its toolbar, phase controls, leads,
+  display switches and SVG export remained inside the narrow card.
+- In that viewport, Open and Save had initially become unnamed buttons because
+  their text spans were hidden. Added explicit labels and confirmed Chrome then
+  reported “打开方案” and “保存方案”.
+- This is viewport emulation, not testing on a physical phone. The Mac locked
+  while preparing reduced-motion emulation. No reduced-motion command had been
+  executed; animation performance and preference-change behavior remain unverified.
+- The Chrome test window remained in device emulation when the lock occurred.
+  Restore its original mode after the user unlocks the Mac.
+
+Production-build server smoke check: the built Worker ran locally on port 3001
+and returned HTTP 200. Its HTML contained both interactive group roles, both
+mobile button names, and exactly two graphic Tab entries (one coil and one
+harmonic). No server warning appeared for that request. Development HMR had
+logged concurrent-renderer warnings and a hydration mismatch involving
+Grammarly-injected body attributes; this server-only smoke check does not prove
+the absence of client hydration or browser-console issues in the production build.
