@@ -32,6 +32,13 @@ test('WebMCP contract changes the same design state only after validated generat
   assert.equal(automatic, false);
   assert.equal(tools[1].execute({}).params.slots, 12);
   const before = result;
+  assert.deepEqual(tools[0].inputSchema.properties.layers.enum, [1, 2]);
+  for (const layers of [3, 4, 6, 8]) {
+    const rejected = tools[0].execute({ ...DEFAULTS, layers });
+    assert.equal(rejected.ok, false);
+    assert.ok(rejected.issues.some((i) => i.code === 'E_RANGE_LAYERS'));
+    assert.equal(result, before);
+  }
   assert.equal(
     tools[0].execute({ slots: 11, poles: 10, paths: 2, layers: 2, pitch: 1 })
       .ok,

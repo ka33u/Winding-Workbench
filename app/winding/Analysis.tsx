@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pause, Play, Waves } from 'lucide-react';
 import { Harmonics } from './Harmonics';
+import { useAnimationVisibility } from './useAnimationVisibility';
 import { Slider } from '@/components/ui/slider';
 import { mmf, COLORS, type Phase, type Winding } from '@/lib/winding';
 
@@ -16,8 +17,9 @@ export function Analysis({
 }) {
   const [angle, setAngle] = useState(0),
     [playing, setPlaying] = useState(false);
+  const { target, visible } = useAnimationVisibility<HTMLElement>();
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || !visible) return;
     let frame = 0,
       last = 0;
     const tick = (now: number) => {
@@ -27,7 +29,7 @@ export function Analysis({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [playing]);
+  }, [playing, visible]);
   useEffect(() => {
     const mq = matchMedia('(prefers-reduced-motion: reduce)');
     const stop = () => {
@@ -53,7 +55,7 @@ export function Analysis({
   return (
     <div className="analysis-grid">
       <Harmonics design={design} phase={phase} />
-      <section className="panel analysis-panel">
+      <section ref={target} className="panel analysis-panel">
         <div className="panel-title">
           <h3>
             <Waves size={17} />

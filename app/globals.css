@@ -893,6 +893,9 @@ h1 {
 .trace-line {
   animation: travel 2.2s linear infinite;
 }
+[data-animation-visible='false'] .trace-line {
+  animation-play-state: paused;
+}
 @keyframes travel {
   to {
     stroke-dashoffset: -100;

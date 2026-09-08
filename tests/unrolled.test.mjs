@@ -112,8 +112,8 @@ test('unrolled roof paths and every bottom series link follow the electrical net
   }
 });
 
-test('phase and path filters retain whole branches; hidden layer pairs create explicit continuation ports', () => {
-  const d = generate({ ...DEFAULTS, layers: 4 }).design;
+test('phase and path filters retain whole branches; partial branches retain explicit continuation ports', () => {
+  const d = generate(DEFAULTS).design;
   const oneBranch = check(
     d,
     d.coils.filter((c) => c.phase === 'V' && c.path === 1),
@@ -122,7 +122,7 @@ test('phase and path filters retain whole branches; hidden layer pairs create ex
   const pair = check(
     d,
     d.coils.filter(
-      (c) => c.phase === 'V' && c.path === 1 && Math.ceil(c.goLayer / 2) === 2,
+      (c) => c.phase === 'V' && c.path === 1 && c.order > 1,
     ),
   );
   assert.ok(pair.leads.some((l) => l.kind === 'continuation'));
@@ -152,17 +152,17 @@ test('Y and delta terminal captions carry the actual phase start/end nodes', () 
   }
 });
 
-test('maximum layer model preserves route continuity and readable conductor spacing', () => {
+test('maximum double-layer model preserves route continuity and readable conductor spacing', () => {
   const d = generate({
     ...DEFAULTS,
     slots: 360,
     poles: 12,
-    layers: 8,
-    paths: 48,
+    layers: 2,
+    paths: 12,
   }).design;
   const layout = check(d);
-  assert.equal(layout.coils.length, 1440);
-  assert.ok(layout.width >= 360 * 76);
+  assert.equal(layout.coils.length, 360);
+  assert.ok(layout.width >= 360 * 32);
   const coords = new Map();
   for (const r of layout.coils)
     for (const [slot, x] of [
@@ -174,7 +174,7 @@ test('maximum layer model preserves route continuity and readable conductor spac
     }
   for (const xs of coords.values()) {
     xs.sort((a, b) => a - b);
-    assert.equal(xs.length, 8);
+    assert.equal(xs.length, 2);
     assert.ok(xs.slice(1).every((x, i) => x - xs[i] >= 8 - 1e-6));
   }
 });

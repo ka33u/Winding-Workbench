@@ -235,9 +235,6 @@ export default function Home() {
                         options={[
                           ['1', '单层'],
                           ['2', '双层'],
-                          ['4', '4 层'],
-                          ['6', '6 层'],
-                          ['8', '8 层'],
                         ]}
                         onChange={(v) => update(k, Number(v))}
                       />
@@ -456,7 +453,7 @@ export default function Home() {
                   ? `${design.params.slots} 槽 / ${design.params.poles} 极`
                   : '检查设计参数'}
                 <span className="title-tag">
-                  {design?.params.layers === 1 ? '单层绕组' : '等节距绕组'}
+                  {design?.params.layers === 1 ? '单层绕组' : '双层绕组'}
                 </span>
               </h2>
             </div>

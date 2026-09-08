@@ -1,5 +1,9 @@
 # Browser acceptance — 2026-09-09
 
+Current scope: the user's latest instruction limits winding layers to one or two.
+Earlier 4/8-layer and 1,440-coil checks below are historical, not supported current
+configurations or outstanding performance requirements.
+
 The user explicitly requested browser testing. Tests below were performed through
 the native Chrome UI, using accessibility observations and screenshots of the
 running application. The local checkout started at published source
@@ -128,3 +132,43 @@ testing from adding runtime SQLite state to the deployment archive.
 Still unverified: authenticated hosted interaction, physical mobile devices,
 supported-browser WebMCP execution, sustained performance, and comparison with
 actual commercial-software engineering samples.
+
+## Animation visibility and two-layer scope follow-up
+
+The user's latest instruction limits the application to single- and double-layer
+windings. Removed higher-layer choices and layer-pair filtering; generation,
+automatic pitch, import, saved-project restore and WebMCP use the same validation.
+Unsupported layer counts return E_RANGE_LAYERS with a single/double-layer remedy.
+Old multilayer files are rejected rather than silently converted.
+
+Before that scope change, the new visibility-aware animation logic was tested on
+the local production Worker. With MMF playback enabled, scrolling its panel out
+of view held the angle at 251.965 degrees across observations; bringing the
+heading back into view resumed progress to 271.215 degrees without pressing Play.
+Line tracing now uses a paused CSS animation when its diagram is outside the
+viewport, and the MMF requestAnimationFrame loop is suspended when not visible.
+The hook also responds to document visibility; a background-tab transition has
+not yet been verified through the UI. The old eight-layer case gave two 39.5 FPS
+samples with both animations enabled, versus the earlier 31.8 sample. These are
+not sustained benchmarks and are no longer the product's maximum-size target.
+
+This browser run also identified an unreferenced favicon: the browser requested
+/favicon.ico and received 404 although /favicon.svg exists. Added metadata that
+references the existing SVG. Post-build browser verification follows below.
+
+After the two-layer change, restarted the production Worker and hard-reloaded
+Chrome. The layer menu's complete accessible option list was “单层 双层”. Choosing
+single layer and generating 36 slots / 4 poles / 2 paths produced 18 coils and
+six coils per phase. Returning to the classic preset rendered a 36-coil double-
+layer diagram; the screenshot showed the form and heading both saying 双层.
+Chrome's AX value was briefly stale while that field was offscreen, so the
+visible screenshot was used to confirm the final state. The FPS overlay and
+DevTools were closed, and tracing and playback were off.
+
+An attempted UI import of `/private/tmp/winding-invalid-layers-4.json` stopped at
+the native file picker, whose Open control stayed disabled; it was cancelled.
+The application-level rejection is verified by automated generation, automatic-
+pitch, import and WebMCP tests, not by this incomplete file-picker attempt.
+The production request log confirmed `/favicon.svg` returned HTTP 200 after the
+metadata fix. The current 34-test suite passes; its 300 single/double-layer
+parameter combinations comprise 232 accepted designs and 68 reasoned rejections.

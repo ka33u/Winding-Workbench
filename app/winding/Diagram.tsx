@@ -21,7 +21,6 @@ export type DiagramProps = {
   phase: Phase | 'all';
   view?: View;
   path?: number;
-  layerPair?: number;
   selected?: string | null;
   onSelect?: (id: string) => void;
   zoom?: number;
@@ -35,17 +34,9 @@ export const VIEWS: [View, string][] = [
   ['radial', '径向分布'],
   ['phasor', '电势相量'],
 ];
-export function visibleCoils(
-  d: Winding,
-  phase: Phase | 'all',
-  path = 0,
-  pair = 0,
-) {
+export function visibleCoils(d: Winding, phase: Phase | 'all', path = 0) {
   return d.coils.filter(
-    (c) =>
-      (phase === 'all' || c.phase === phase) &&
-      (!path || c.path === path) &&
-      (!pair || Math.ceil(c.goLayer / 2) === pair),
+    (c) => (phase === 'all' || c.phase === phase) && (!path || c.path === path),
   );
 }
 const label = (c: Coil) =>
@@ -55,7 +46,6 @@ export function Diagram({
   phase,
   view = 'linear',
   path = 0,
-  layerPair = 0,
   selected,
   onSelect,
   zoom = 1,
@@ -64,8 +54,8 @@ export function Diagram({
   showDirections = true,
 }: DiagramProps) {
   const cs = useMemo(
-    () => visibleCoils(design, phase, path, view === 'circuit' ? 0 : layerPair),
-    [design, phase, path, view, layerPair],
+    () => visibleCoils(design, phase, path),
+    [design, phase, path],
   );
   const linear = useMemo(
     () => (view === 'linear' ? unrolledLayout(design, cs) : null),
@@ -529,7 +519,10 @@ export function Diagram({
         aria-label={`${design.params.slots}槽${design.params.poles}极${VIEWS.find((x) => x[0] === view)?.[1]}，${phase === 'all' ? '全部相' : phase + '相'}`}
       >
         <title>{`${design.params.slots}槽${design.params.poles}极 ${VIEWS.find((x) => x[0] === view)?.[1]}`}</title>
-        <desc>方向键切换线圈，Home / End 跳至首尾，回车或空格选择，Esc 取消选择，Tab 离开图形。</desc>
+        <desc>
+          方向键切换线圈，Home / End 跳至首尾，回车或空格选择，Esc 取消选择，Tab
+          离开图形。
+        </desc>
         <defs>
           <pattern
             id={`grid-${view}`}

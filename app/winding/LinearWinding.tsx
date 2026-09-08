@@ -340,7 +340,7 @@ export function LinearWinding({
           fill="#718093"
           fontSize={11}
         >
-          ↑ 首端 / ━ 尾端 · 同名节点相连 · ◇ 接隐藏层对
+          ↑ 首端 / ━ 尾端 · 同名节点相连
         </text>
       )}
     </>

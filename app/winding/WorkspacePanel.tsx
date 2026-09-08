@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Download,
   FileJson,
@@ -31,6 +31,7 @@ import { PHASES, COLORS, type Phase, type Winding } from '@/lib/winding';
 import { coilCSV, download, encodeProject } from '@/lib/project';
 import { Diagram, VIEWS, visibleCoils, type View } from './Diagram';
 import { Choice } from './Choice';
+import { useAnimationVisibility } from './useAnimationVisibility';
 
 export function WorkspacePanel({
   design,
@@ -45,24 +46,23 @@ export function WorkspacePanel({
 }) {
   const [view, setView] = useState<View>('linear'),
     [path, setPath] = useState(0),
-    [pair, setPair] = useState(0),
     [zoom, setZoom] = useState(1),
     [animate, setAnimate] = useState(false),
     [showConnections, setShowConnections] = useState(true),
     [showDirections, setShowDirections] = useState(true),
     [selected, setSelected] = useState<string | null>(null),
     [page, setPage] = useState(0);
-  const area = useRef<HTMLDivElement>(null);
-  const effectivePair = view === 'circuit' ? 0 : pair;
+  const { target: area, visible: diagramVisible } =
+    useAnimationVisibility<HTMLDivElement>();
   const coils = useMemo(
     () =>
-      visibleCoils(design, phase, path, effectivePair).sort(
+      visibleCoils(design, phase, path).sort(
         (a, b) =>
           PHASES.indexOf(a.phase) - PHASES.indexOf(b.phase) ||
           a.path - b.path ||
           a.order - b.order,
       ),
-    [design, phase, path, effectivePair],
+    [design, phase, path],
   );
   const safePage = Math.min(
     page,
@@ -188,30 +188,6 @@ export function WorkspacePanel({
                   }}
                 />
               </div>
-              {design.params.layers > 2 && view !== 'circuit' && (
-                <div className="small-choice">
-                  <Choice
-                    label="过滤层对"
-                    value={String(pair)}
-                    options={[
-                      ['0', '全部层对'],
-                      ...Array.from(
-                        { length: design.params.layers / 2 },
-                        (_, i) =>
-                          [String(i + 1), `L${i * 2 + 1} / L${i * 2 + 2}`] as [
-                            string,
-                            string,
-                          ],
-                      ),
-                    ]}
-                    onChange={(v) => {
-                      setPair(Number(v));
-                      setPage(0);
-                      setSelected(null);
-                    }}
-                  />
-                </div>
-              )}
               <div className="zoom-tools">
                 {view === 'linear' && (
                   <button
@@ -264,7 +240,7 @@ export function WorkspacePanel({
               </div>
             </div>
           </div>
-          <div ref={area}>
+          <div ref={area} data-animation-visible={diagramVisible}>
             {VIEWS.map(([v]) => (
               <TabsContent key={v} value={v}>
                 <Diagram
@@ -272,7 +248,6 @@ export function WorkspacePanel({
                   phase={phase}
                   view={v}
                   path={path}
-                  layerPair={pair}
                   selected={selectedCoil?.id}
                   onSelect={pick}
                   zoom={zoom}
@@ -366,7 +341,7 @@ export function WorkspacePanel({
               className="quiet-button"
               onClick={() => {
                 download(
-                  coilCSV(design, phase, path, effectivePair),
+                  coilCSV(design, phase, path),
                   `线圈表_${design.params.slots}槽${design.params.poles}极_${phase}.csv`,
                   'text/csv;charset=utf-8',
                 );

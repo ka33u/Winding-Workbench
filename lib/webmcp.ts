@@ -38,7 +38,7 @@ export function windingTools(actions: WindingActions): BrowserTool[] {
           slots: { type: 'integer', minimum: 3, maximum: 360 },
           poles: { type: 'integer', minimum: 2, maximum: 240 },
           paths: { type: 'integer', minimum: 1, maximum: 120 },
-          layers: { type: 'integer', enum: [1, 2, 4, 6, 8] },
+          layers: { type: 'integer', enum: [1, 2] },
           pitch: { type: 'integer' },
           turns: { type: 'integer' },
           connection: { type: 'string', enum: ['star', 'delta'] },

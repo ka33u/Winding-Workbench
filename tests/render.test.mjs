@@ -47,8 +47,8 @@ test('SVG serialization contains correct coil targets for every view and phase f
       }
   }
 });
-test('path and layer filters affect layout; circuit view retains complete series branches', () => {
-  const r = generate({ ...DEFAULTS, layers: 4 });
+test('phase and path filters retain complete series branches in both wiring views', () => {
+  const r = generate(DEFAULTS);
   assert.ok(r.ok);
   for (const view of ['linear', 'circuit']) {
     const html = renderToStaticMarkup(
@@ -56,15 +56,11 @@ test('path and layer filters affect layout; circuit view retains complete series
         design: r.design,
         phase: 'V',
         path: 1,
-        layerPair: 2,
         view,
       }),
     );
     for (const c of r.design.coils) {
-      const expected =
-        c.phase === 'V' &&
-        c.path === 1 &&
-        (view === 'circuit' || Math.ceil(c.goLayer / 2) === 2);
+      const expected = c.phase === 'V' && c.path === 1;
       assert.equal(html.includes(`aria-label="${c.id}：`), expected);
     }
   }

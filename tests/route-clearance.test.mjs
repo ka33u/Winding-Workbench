@@ -39,7 +39,7 @@ function intersectsBox(a, b, cx, cy, rx, ry) {
 }
 const cases = [
   ...PRESETS.map((p) => p.params),
-  { ...DEFAULTS, layers: 4 },
+  { ...DEFAULTS, slots: 360, poles: 12, layers: 2, paths: 12, pitch: 29 },
   { ...DEFAULTS, connection: 'delta', pitch: 9 },
 ];
 function layouts() {

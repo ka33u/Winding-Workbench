@@ -124,7 +124,7 @@ export function unrolledLayout(
     }
   }
   const left = 72;
-  // Keep conductors and terminal captions legible at intrinsic scale, including 8 layers.
+  // Keep conductors and terminal captions legible at intrinsic scale.
   const width = Math.max(
     1200,
     slots * Math.max(32, layers * 8 + 12) + left * 2,

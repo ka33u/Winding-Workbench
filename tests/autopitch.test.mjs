@@ -64,20 +64,20 @@ test('automatic search distinguishes invalid inputs from a failed bounded search
   assert.equal(invalidTurns.issues[0].code, 'E_RANGE_TURNS');
 });
 
-test('automatic pitch supports the largest layer model and does not alter other parameters', () => {
+test('automatic pitch supports the largest double-layer model and does not alter other parameters', () => {
   const p = {
     ...DEFAULTS,
     slots: 360,
     poles: 12,
-    paths: 48,
-    layers: 8,
+    paths: 12,
+    layers: 2,
     sequence: 'UWV',
     connection: 'delta',
     turns: 10000,
   };
   const r = generateAuto(p);
   assert.ok(r.ok);
-  assert.equal(r.design.coils.length, 1440);
+  assert.equal(r.design.coils.length, 360);
   assert.equal(r.design.params.pitch, 30);
   for (const key of Object.keys(p))
     if (key !== 'pitch') assert.equal(r.design.params[key], p[key]);

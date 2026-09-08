@@ -123,7 +123,7 @@ export function validateParams(p: Params): Issue[] {
     ['slots', '槽数', 3, 360, true],
     ['poles', '极数', 2, 240, true],
     ['paths', '并联路数', 1, 120, true],
-    ['layers', '层数', 1, 8, true],
+    ['layers', '层数', 1, 2, true],
     ['pitch', '节距', 1, 359, true],
     ['turns', '每线圈匝数', 1, 10000, true],
     ['frequency', '频率', 0.1, 5000, false],
@@ -142,8 +142,12 @@ export function validateParams(p: Params): Issue[] {
         issue(
           'E_RANGE_' + field.toUpperCase(),
           `${label}超出有效范围`,
-          `${label}需要是 ${min}–${max} 的${integer ? '整数' : '数值'}。`,
-          `请输入有效的${label}。`,
+          field === 'layers'
+            ? '本工作台只支持单层（1）和双层（2）绕组。'
+            : `${label}需要是 ${min}–${max} 的${integer ? '整数' : '数值'}。`,
+          field === 'layers'
+            ? '选择单层或双层后重新生成。'
+            : `请输入有效的${label}。`,
           field,
         ),
       );
@@ -177,16 +181,6 @@ export function validateParams(p: Params): Issue[] {
         `当前 ${p.poles} 极不能构成完整的 N/S 极对。`,
         '使用 2、4、6… 极。',
         'poles',
-      ),
-    );
-  if (![1, 2, 4, 6, 8].includes(p.layers))
-    errors.push(
-      issue(
-        'E_LAYER_SCHEME',
-        '当前层数排列尚不支持',
-        '本生成器支持单层及 2/4/6/8 层等节距层对，不将奇数多层等同于常规双层。',
-        '选择单层或偶数层对；特殊绕组需要专用排线。',
-        'layers',
       ),
     );
   if (p.pitch >= p.slots)
@@ -341,21 +335,11 @@ function symmetry(coils: Coil[], p: Params) {
 function makeCoils(p: Params): Coil[] | null {
   const step = (360 * gcd(p.slots, p.poles / 2)) / p.slots;
   const offsets = [step / 4, 0, step / 2, 15, 30 - step / 4];
-  if (p.layers !== 1) {
+  if (p.layers === 2) {
     for (const offset of offsets) {
       const cs: Coil[] = [];
-      for (let layer = 1; layer <= p.layers; layer += 2)
-        for (let s = 1; s <= p.slots; s++)
-          cs.push(
-            assign(
-              s,
-              mod(s - 1 + p.pitch, p.slots) + 1,
-              layer,
-              layer + 1,
-              p,
-              offset,
-            ),
-          );
+      for (let s = 1; s <= p.slots; s++)
+        cs.push(assign(s, mod(s - 1 + p.pitch, p.slots) + 1, 1, 2, p, offset));
       if (symmetry(cs, p).valid) return cs;
     }
     return null;
@@ -672,17 +656,6 @@ export function generate(p: Params): Result {
         '长距绕组可能增加端部长度，需要结合制造条件确认。',
         '优先比较不超过极距的节距。',
         'pitch',
-        'warning',
-      ),
-    );
-  if (p.layers > 2)
-    issues.push(
-      issue(
-        'W_LAYER_PAIRS',
-        '采用普通等节距层对叠加',
-        '各层对使用相同排线；未定义发卡换位、焊点或焊接工艺。',
-        '用于电势和连接检查；发卡工艺需进一步设计。',
-        'layers',
         'warning',
       ),
     );

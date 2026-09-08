@@ -68,7 +68,7 @@ export function decodeProject(text: string): Params {
     throw new Error(`${result.issues[0].code}：${result.issues[0].reason}`);
   return p;
 }
-export function coilCSV(d: Winding, phase = 'all', path = 0, pair = 0): string {
+export function coilCSV(d: Winding, phase = 'all', path = 0): string {
   const rows = [
     [
       'CoilID',
@@ -87,22 +87,21 @@ export function coilCSV(d: Winding, phase = 'all', path = 0, pair = 0): string {
   for (const b of netlist(d).branches)
     if ((phase === 'all' || b.phase === phase) && (!path || b.path === path))
       for (const c of b.coils)
-        if (!pair || Math.ceil(c.goLayer / 2) === pair)
-          rows.push(
-            [
-              c.id,
-              c.phase,
-              c.path,
-              c.order,
-              c.go,
-              c.goLayer,
-              c.back,
-              c.backLayer,
-              c.turns,
-              c.from,
-              c.to,
-            ].map(String),
-          );
+        rows.push(
+          [
+            c.id,
+            c.phase,
+            c.path,
+            c.order,
+            c.go,
+            c.goLayer,
+            c.back,
+            c.backLayer,
+            c.turns,
+            c.from,
+            c.to,
+          ].map(String),
+        );
   return (
     '\uFEFF' +
     rows

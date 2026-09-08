@@ -10,12 +10,39 @@ import {
   netlist,
 } from '../lib/winding.ts';
 import { encodeProject, decodeProject, coilCSV } from '../lib/project.ts';
+import { generateAuto } from '../lib/autopitch.ts';
 const near = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) < e, `${a} != ${b}`);
 const design = (p) => {
   const r = generate({ ...DEFAULTS, ...p });
   assert.equal(r.ok, true, JSON.stringify(r.ok ? '' : r.issues));
   return r.design;
 };
+
+test('only single and double layers are accepted by generation, automatic pitch and imports', () => {
+  for (const layers of [1, 2]) {
+    const d = design({ layers, pitch: 9 });
+    assert.equal(d.coils.length, (d.params.slots * layers) / 2);
+    assert.equal(decodeProject(encodeProject(d)).layers, layers);
+  }
+  const doc = JSON.parse(encodeProject(design({})));
+  for (const layers of [0, 1.5, 3, 4, 6, 8, 100, '2', null]) {
+    const p = { ...DEFAULTS, layers };
+    for (const calculate of [generate, generateAuto]) {
+      const result = calculate(p);
+      assert.equal(result.ok, false);
+      assert.ok(
+        result.issues.some(
+          (i) =>
+            i.code === 'E_RANGE_LAYERS' &&
+            i.reason.includes('单层') &&
+            i.fix.includes('双层'),
+        ),
+      );
+    }
+    doc.params.layers = layers;
+    assert.throws(() => decodeProject(JSON.stringify(doc)), /E_RANGE_LAYERS/);
+  }
+});
 
 test('published SWAT-EM reference examples and textbook pitch/distribution formula', () => {
   for (const [p, kw] of [
@@ -61,7 +88,7 @@ test('invalid inputs fail with actionable codes; no NaN or infinite loop', () =>
     [{ poles: 3 }, 'E_POLES_ODD'],
     [{ slots: 35 }, 'E_PHASE_SLOT_COUNT'],
     [{ slots: 12, poles: 6 }, 'E_SLOT_STAR_SYMMETRY'],
-    [{ layers: 3 }, 'E_LAYER_SCHEME'],
+    [{ layers: 3 }, 'E_RANGE_LAYERS'],
     [{ layers: 1, pitch: 8 }, 'E_SINGLE_PITCH'],
     [{ pitch: 36 }, 'E_PITCH_SPAN'],
     [{ paths: 5 }, 'E_PATH_COIL_COUNT'],
@@ -206,16 +233,12 @@ test('JSON is reproducible and treats externally modified derived results as unt
   assert.throws(() => decodeProject(JSON.stringify(doc)), /E_RANGE_SLOTS/);
 });
 test('CSV exports the selected coils with continuous net nodes', () => {
-  const d = design({ layers: 4 });
-  const text = coilCSV(d, 'V', 1, 2);
+  const d = design({ layers: 2 });
+  const text = coilCSV(d, 'V', 1);
   const rows = text.trim().split('\r\n');
   assert.equal(
     rows.length,
-    1 +
-      d.coils.filter(
-        (c) =>
-          c.phase === 'V' && c.path === 1 && Math.ceil(c.goLayer / 2) === 2,
-      ).length,
+    1 + d.coils.filter((c) => c.phase === 'V' && c.path === 1).length,
   );
   assert.ok(rows.slice(1).every((r) => r.includes('"V"')));
   assert.match(rows[0], /NodeFrom/);
@@ -228,7 +251,7 @@ test('bounded parameter sweep: independent occupancy, vector and circuit invaria
     6, 9, 12, 18, 24, 27, 30, 36, 48, 54, 60, 72, 90, 96, 120,
   ])
     for (const poles of [2, 4, 6, 8, 10, 12, 14, 16, 20, 24])
-      for (const layers of [1, 2, 4]) {
+      for (const layers of [1, 2]) {
         const pitch = Math.max(
           1,
           Math.round(slots / poles) -
@@ -288,9 +311,9 @@ test('bounded parameter sweep: independent occupancy, vector and circuit invaria
   console.log(JSON.stringify({ sweep: { success, rejected, maxMs } }));
 });
 test('maximum supported size completes within a bounded budget and exports every coil', () => {
-  const d = design({ slots: 360, poles: 12, layers: 8, pitch: 29, paths: 48 });
-  assert.equal(d.coils.length, 1440);
+  const d = design({ slots: 360, poles: 12, layers: 2, pitch: 29, paths: 12 });
+  assert.equal(d.coils.length, 360);
   assert.ok(d.elapsed < 2000, `too slow: ${d.elapsed}ms`);
-  assert.equal(netlist(d).branches.length, 144);
-  assert.equal(coilCSV(d).trim().split('\r\n').length, 1441);
+  assert.equal(netlist(d).branches.length, 36);
+  assert.equal(coilCSV(d).trim().split('\r\n').length, 361);
 });
