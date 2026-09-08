@@ -507,8 +507,9 @@ h1 {
 }
 .drawing-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 25px;
+  gap: 14px 22px;
   padding: 14px 24px;
   color: #7f8da3;
   font-size: 12px;

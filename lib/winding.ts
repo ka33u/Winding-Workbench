@@ -1,9 +1,9 @@
 export type Phase = 'U' | 'V' | 'W';
 export const PHASES: Phase[] = ['U', 'V', 'W'];
 export const COLORS: Record<Phase, string> = {
-  U: '#e56842',
-  V: '#16a399',
-  W: '#6676de',
+  U: '#d93642',
+  V: '#148846',
+  W: '#245bd8',
 };
 export type Params = {
   slots: number;

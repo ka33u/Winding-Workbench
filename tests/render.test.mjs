@@ -84,3 +84,29 @@ test('delta and star electrical view end nodes match exported netlist', () => {
       );
   }
 });
+
+test('unrolled export exposes real connections and supports clean conductor-only display', () => {
+  const d = generate(DEFAULTS).design;
+  const full = renderToStaticMarkup(
+    React.createElement(Diagram, { design: d, phase: 'U', view: 'linear' }),
+  );
+  assert.equal((full.match(/data-series-from=/g) || []).length, 10);
+  assert.equal((full.match(/data-lead-kind="start"/g) || []).length, 2);
+  assert.equal((full.match(/data-lead-kind="end"/g) || []).length, 2);
+  assert.equal((full.match(/data-coil-anchor=/g) || []).length, 12);
+  assert.ok(full.includes('data-direction-coil='));
+  const minimal = renderToStaticMarkup(
+    React.createElement(Diagram, {
+      design: d,
+      phase: 'U',
+      view: 'linear',
+      showConnections: false,
+      showDirections: false,
+    }),
+  );
+  assert.doesNotMatch(
+    minimal,
+    /data-series-from=|data-lead-kind=|data-direction-coil=/,
+  );
+  assert.equal((minimal.match(/data-coil-anchor=/g) || []).length, 12);
+});

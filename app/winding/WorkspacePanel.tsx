@@ -1,6 +1,15 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, FileJson, Focus, Minus, Plus, Route, X } from 'lucide-react';
+import {
+  Download,
+  FileJson,
+  Focus,
+  Minus,
+  Plus,
+  Route,
+  X,
+  ScanLine,
+} from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -39,6 +48,8 @@ export function WorkspacePanel({
     [pair, setPair] = useState(0),
     [zoom, setZoom] = useState(1),
     [animate, setAnimate] = useState(false),
+    [showConnections, setShowConnections] = useState(true),
+    [showDirections, setShowDirections] = useState(true),
     [selected, setSelected] = useState<string | null>(null),
     [page, setPage] = useState(0);
   const area = useRef<HTMLDivElement>(null);
@@ -72,15 +83,16 @@ export function WorkspacePanel({
     if (n >= 0) setPage(Math.floor(n / 30));
     if (id !== selected)
       requestAnimationFrame(() => {
-        area.current
-          ?.querySelector(`[data-coil-id="${id}"]`)
-          ?.scrollIntoView({
-            block: 'nearest',
-            inline: 'center',
-            behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
-              ? 'auto'
-              : 'smooth',
-          });
+        const target =
+          area.current?.querySelector(`[data-coil-anchor="${id}"]`) ??
+          area.current?.querySelector(`[data-coil-id="${id}"]`);
+        target?.scrollIntoView({
+          block: 'nearest',
+          inline: 'center',
+          behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'auto'
+            : 'smooth',
+        });
       });
   }
   function exportSVG() {
@@ -195,11 +207,36 @@ export function WorkspacePanel({
                 </div>
               )}
               <div className="zoom-tools">
+                {view === 'linear' && (
+                  <button
+                    className="icon-button"
+                    aria-label="线路图适应窗口宽度"
+                    title="适应窗口宽度"
+                    onClick={() => {
+                      const svg = area.current?.querySelector(
+                        'svg[data-export-diagram]',
+                      ) as SVGSVGElement | null;
+                      if (svg && area.current)
+                        setZoom(
+                          Math.min(
+                            2.5,
+                            Math.max(
+                              0.02,
+                              area.current.clientWidth /
+                                svg.viewBox.baseVal.width,
+                            ),
+                          ),
+                        );
+                    }}
+                  >
+                    <ScanLine size={14} />
+                  </button>
+                )}
                 <button
                   aria-label="缩小"
                   className="icon-button"
-                  onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-                  disabled={zoom <= 0.5}
+                  onClick={() => setZoom((z) => Math.max(0.1, z - 0.25))}
+                  disabled={zoom <= 0.1}
                 >
                   <Minus size={14} />
                 </button>
@@ -234,12 +271,42 @@ export function WorkspacePanel({
                   onSelect={pick}
                   zoom={zoom}
                   animate={animate}
+                  showConnections={showConnections}
+                  showDirections={showDirections}
                 />
               </TabsContent>
             ))}
           </div>
         </Tabs>
         <div className="drawing-footer">
+          {view === 'linear' && (
+            <>
+              <label
+                className="motion-switch"
+                htmlFor="show-series-connections"
+              >
+                <Switch
+                  id="show-series-connections"
+                  checked={showConnections}
+                  onCheckedChange={setShowConnections}
+                  aria-label="显示串联跨接和端子引线"
+                />
+                跨接与引线
+              </label>
+              <label
+                className="motion-switch"
+                htmlFor="show-winding-directions"
+              >
+                <Switch
+                  id="show-winding-directions"
+                  checked={showDirections}
+                  onCheckedChange={setShowDirections}
+                  aria-label="显示线圈参考绕向箭头"
+                />
+                绕向箭头
+              </label>
+            </>
+          )}
           <label className="motion-switch" htmlFor="trace-motion">
             <Switch
               id="trace-motion"

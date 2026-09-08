@@ -1,7 +1,9 @@
 'use client';
 // SVG is an accessible image with interactive coil targets; its scroll region must be keyboard reachable.
 /* eslint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-tabindex */
-import type { KeyboardEvent } from 'react';
+import { useMemo, type KeyboardEvent } from 'react';
+import { unrolledLayout } from '@/lib/unrolled';
+import { LinearWinding } from './LinearWinding';
 import {
   COLORS,
   PHASES,
@@ -23,6 +25,8 @@ export type DiagramProps = {
   onSelect?: (id: string) => void;
   zoom?: number;
   animate?: boolean;
+  showConnections?: boolean;
+  showDirections?: boolean;
 };
 export const VIEWS: [View, string][] = [
   ['linear', '绕组展开'],
@@ -55,12 +59,16 @@ export function Diagram({
   onSelect,
   zoom = 1,
   animate = false,
+  showConnections = true,
+  showDirections = true,
 }: DiagramProps) {
-  const cs = visibleCoils(
-    design,
-    phase,
-    path,
-    view === 'circuit' ? 0 : layerPair,
+  const cs = useMemo(
+    () => visibleCoils(design, phase, path, view === 'circuit' ? 0 : layerPair),
+    [design, phase, path, view, layerPair],
+  );
+  const linear = useMemo(
+    () => (view === 'linear' ? unrolledLayout(design, cs) : null),
+    [design, cs, view],
   );
   const { slots, layers } = design.params;
   const hit = (c: Coil) => ({
@@ -96,148 +104,18 @@ export function Diagram({
     height = 440,
     content: React.ReactNode;
   if (view === 'linear') {
-    width = Math.max(1080, slots * Math.max(29, layers * 7) + 130);
-    const step = (width - 160) / slots,
-      x = (s: number, l: number) =>
-        80 +
-        (s - 0.5) * step +
-        (l - (layers + 1) / 2) * Math.min(6, step / (layers + 1));
-    const segments = cs
-      .flatMap((c) => {
-        const a = x(c.go, c.goLayer),
-          b = x(c.back, c.backLayer);
-        const origin =
-          (c.back - c.go + slots) % slots === design.params.pitch
-            ? c.go
-            : c.back;
-        const wraps = origin - 1 + design.params.pitch >= slots;
-        return wraps
-          ? [
-              { c, a, b: a < b ? 35 : width - 35, wrap: true },
-              { c, a: b, b: b < a ? 35 : width - 35, wrap: true },
-            ]
-          : [{ c, a, b, wrap: false }];
-      })
-      .sort((a, b) => Math.min(a.a, a.b) - Math.min(b.a, b.b));
-    const lanes: number[] = [];
-    const routed = segments.map((s) => {
-      const lo = Math.min(s.a, s.b),
-        hi = Math.max(s.a, s.b);
-      let lane = lanes.findIndex((end) => end + 9 < lo);
-      if (lane < 0) lane = lanes.length;
-      lanes[lane] = hi;
-      return { ...s, lane };
-    });
-    const top = Math.max(172, lanes.length * 13 + 60),
-      bottom = top + 122;
-    height = bottom + 120;
+    width = linear!.width;
+    height = showConnections ? linear!.height : linear!.bottom + 62;
     content = (
-      <>
-        {Array.from({ length: slots }, (_, i) => (
-          <g key={i}>
-            <rect
-              x={80 + i * step + 2}
-              y={top}
-              width={step - 4}
-              height={122}
-              rx={4}
-              fill="#f0f3f8"
-              stroke="#e0e6ef"
-            />
-            <text
-              x={80 + (i + 0.5) * step}
-              y={bottom + 27}
-              textAnchor="middle"
-              fill="#64748b"
-              fontSize={12}
-            >
-              {i + 1}
-            </text>
-          </g>
-        ))}
-        {routed.map((s, i) => {
-          const { c, a, b, lane, wrap } = s,
-            y = top - 27 - lane * 13;
-          const d = wrap
-            ? `M${a},${bottom - 12} V${y + 12} Q${a},${y} ${a + (b > a ? 12 : -12)},${y} H${b}`
-            : `M${a},${bottom - 12} V${y + 12} Q${a},${y} ${a + (b > a ? 12 : -12)},${y} H${b + (a > b ? 12 : -12)} Q${b},${y} ${b},${y + 12} V${bottom - 12}`;
-          return (
-            <g key={c.id + '-' + i} {...hit(c)} opacity={opacity(c)}>
-              <title>{label(c)}</title>
-              <path d={d} stroke="transparent" strokeWidth={10} fill="none" />
-              <path
-                d={d}
-                stroke={COLORS[c.phase]}
-                strokeWidth={stroke(c)}
-                fill="none"
-              />
-              {trace(c, d)}
-              {wrap && (
-                <text
-                  x={b}
-                  y={y - 4}
-                  fill={COLORS[c.phase]}
-                  textAnchor={b < width / 2 ? 'start' : 'end'}
-                  fontSize={11}
-                >
-                  {c.id}
-                </text>
-              )}
-            </g>
-          );
-        })}
-        {cs.map((c) => (
-          <g key={c.id} opacity={opacity(c)}>
-            <circle
-              cx={x(c.go, c.goLayer)}
-              cy={bottom - 12}
-              r={3}
-              fill={COLORS[c.phase]}
-            />
-            <circle
-              cx={x(c.back, c.backLayer)}
-              cy={bottom - 12}
-              r={3}
-              stroke={COLORS[c.phase]}
-              fill="white"
-            />
-            {slots <= 60 && layers <= 2 && (
-              <>
-                <text
-                  x={x(c.go, c.goLayer)}
-                  y={top + 75}
-                  textAnchor="middle"
-                  fontSize={10}
-                  fill={COLORS[c.phase]}
-                >
-                  {c.phase}+
-                </text>
-                <text
-                  x={x(c.back, c.backLayer)}
-                  y={top + 92}
-                  textAnchor="middle"
-                  fontSize={10}
-                  fill={COLORS[c.phase]}
-                >
-                  {c.phase}−
-                </text>
-              </>
-            )}
-          </g>
-        ))}
-        <text x={50} y={height - 45} fill="#7e8da2" fontSize={12}>
-          ● 去边　○ 回边　同编号的两侧边界为续接线
-        </text>
-        <text
-          x={width - 50}
-          y={height - 23}
-          textAnchor="end"
-          fill="#7e8da2"
-          fontSize={12}
-        >
-          各槽内从左到右为 L1 → L{layers} · 点击线路追踪
-        </text>
-      </>
+      <LinearWinding
+        design={design}
+        layout={linear!}
+        selected={selected}
+        hit={hit}
+        animate={animate}
+        showConnections={showConnections}
+        showDirections={showDirections}
+      />
     );
   } else if (view === 'circuit') {
     const branches = netlist(design).branches.filter(
@@ -628,7 +506,12 @@ export function Diagram({
         viewBox={`0 0 ${width} ${height}`}
         style={{
           width: `${zoom * 100}%`,
-          minWidth: (view === 'radial' ? 700 : Math.min(width, 1500)) * zoom,
+          minWidth:
+            (view === 'linear'
+              ? width
+              : view === 'radial'
+                ? 700
+                : Math.min(width, 1500)) * zoom,
         }}
         role="img"
         aria-label={`${design.params.slots}槽${design.params.poles}极${VIEWS.find((x) => x[0] === view)?.[1]}，${phase === 'all' ? '全部相' : phase + '相'}`}
@@ -644,8 +527,14 @@ export function Diagram({
             <circle cx="1" cy="1" r=".65" fill="#d9e1ec" />
           </pattern>
         </defs>
-        <rect width={width} height={height} fill="#fcfdff" />
-        <rect width={width} height={height} fill={`url(#grid-${view})`} />
+        <rect
+          width={width}
+          height={height}
+          fill={view === 'linear' ? '#fff' : '#fcfdff'}
+        />
+        {view !== 'linear' && (
+          <rect width={width} height={height} fill={`url(#grid-${view})`} />
+        )}
         {content}
       </svg>
     </div>
