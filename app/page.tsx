@@ -148,6 +148,7 @@ export default function Home() {
         <div className="header-actions">
           <input
             ref={fileInput}
+            name="winding-project"
             type="file"
             accept=".json,application/json"
             className="sr-only"
@@ -243,6 +244,7 @@ export default function Home() {
                     ) : (
                       <input
                         type="number"
+                        name={k}
                         inputMode="numeric"
                         value={Number.isNaN(params[k]) ? '' : params[k]}
                         onChange={(e) =>
@@ -291,6 +293,7 @@ export default function Home() {
                   <input
                     type="number"
                     disabled={automaticPitch}
+                    name="pitch"
                     aria-describedby="pitch-guidance"
                     aria-invalid={
                       !result.ok &&
@@ -318,6 +321,7 @@ export default function Home() {
                   <input
                     type="number"
                     value={Number.isNaN(params.turns) ? '' : params.turns}
+                    name="turns"
                     onChange={(e) =>
                       update(
                         'turns',
@@ -366,6 +370,7 @@ export default function Home() {
                     <span>频率 / Hz</span>
                     <input
                       type="number"
+                      name="frequency"
                       value={
                         Number.isNaN(params.frequency) ? '' : params.frequency
                       }
@@ -382,6 +387,7 @@ export default function Home() {
                     <input
                       type="number"
                       value={Number.isNaN(params.current) ? '' : params.current}
+                      name="current"
                       onChange={(e) =>
                         update(
                           'current',

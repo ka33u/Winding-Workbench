@@ -1,4 +1,4 @@
-# Browser acceptance — 2026-09-08
+# Browser acceptance — 2026-09-09
 
 The user explicitly requested browser testing. Tests below were performed through
 the native Chrome UI, using accessibility observations and screenshots of the
@@ -82,3 +82,49 @@ harmonic). No server warning appeared for that request. Development HMR had
 logged concurrent-renderer warnings and a hydration mismatch involving
 Grammarly-injected body attributes; this server-only smoke check does not prove
 the absence of client hydration or browser-console issues in the production build.
+
+## Production browser follow-up — 2026-09-09
+
+Mac access recovered. Chrome tested the built Worker at `http://localhost:3000/`
+with no HMR client, initially source `7110dbeb21006cdc782769dd6184258ddcad233d`.
+The native control connection needed one reset; a malformed address-bar entry
+was corrected and the application title and exact local URL were verified before
+recording the results below.
+
+- The default production page's Console showed zero messages. DevTools Issues
+  identified seven inputs without `id` or `name`. Added field names (and a name
+  for the import input), rebuilt, and reloaded: Issues reported zero page errors,
+  zero breaking changes, zero possible improvements, and “No issues detected”.
+  That reload did emit `Unchecked runtime.lastError: Could not establish
+  connection. Receiving end does not exist.` This appears to involve browser
+  extension messaging; its exact origin was not confirmed. It is not a clean
+  post-fix Console result, and must not be reported as such.
+- Enabled both line tracing and MMF playback, then ran DevTools' CSS
+  `prefers-reduced-motion: reduce` emulation. Tracing switched off and MMF changed
+  from Pause to Play at about 23 degrees. Removed the emulation afterwards;
+  the command menu again offered “Emulate … reduce”, confirming no override.
+- With the 36-slot default design and both animations enabled, Chrome's FPS
+  overlay showed 52.2 and 60.0 FPS in two screenshots of the MMF panel.
+- Entered and verified 360 slots, 12 poles, 8 layers, 48 parallel paths. Automatic
+  pitch selected 30; generation produced 1,440 coils and passed the connection
+  checks. Fit-to-width showed the overall routing at 6% zoom. U-only reduced the
+  visible count to 480; first-branch filtering reduced it to 10. At 100% zoom,
+  the visible branch segment showed separated crossover levels, crossing bridges,
+  direction markers, and its lead terminal. Individual details are not readable
+  in the 6% overview; filtering, zoom, and horizontal scrolling are necessary.
+- Restored all phases and all branches. With both animations enabled, the MMF
+  panel screenshot showed 31.8 FPS; with tracing off and MMF alone it showed
+  40.8 FPS. These are sparse overlay samples on this desktop with DevTools open,
+  not a sustained benchmark, minimum guarantee, or timing of design generation.
+  Large-model rendering performance remains an acceptance limitation.
+- Stopped playback, restored the default preset, disabled Device Mode, removed
+  reduced-motion emulation, hid the FPS overlay, and closed DevTools.
+
+The local production runner now persists Wrangler state in the project's ignored
+`.wrangler/state`, explicitly outside `dist/server`. Verified Wrangler resolves
+this explicit path relative to the working directory. This prevents browser smoke
+testing from adding runtime SQLite state to the deployment archive.
+
+Still unverified: authenticated hosted interaction, physical mobile devices,
+supported-browser WebMCP execution, sustained performance, and comparison with
+actual commercial-software engineering samples.
