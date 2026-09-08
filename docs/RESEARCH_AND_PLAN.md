@@ -36,3 +36,7 @@
 - 对每种声称支持的生成类型有独立基准或不变量证据；导出可重新读入。
 - 页面不是宣传页；首屏可以输入并看到有效结果；触屏/键盘/减少动态效果具备实现。
 - “可用性不低于成熟软件”仍需真实用户场景、商用软件样本和浏览器验收，不能由自测通过直接推断。该要求未证实前，目标保持进行中。
+
+## 机械阶次补充（2026-09-08）
+
+依据 [SWAT-EM Theory](https://swat-em.readthedocs.io/en/latest/theory.html) 和 [Motor-CAD Winding Pattern](https://ansyshelp.ansys.com/public/Views/Secured/MotorCAD/v252/en/Motor-CAD_UG/MotorCAD/topics/windingpattern.html)，机械阶次 n 与电气阶次 ν 满足 n=νp。将槽安匝系数直接投影到exp(jnθs)，可保留电气非整数次谐波；只绘制整数ν会漏掉这些分量。新增机械/电气切换、1–240阶显示和相轴序列分解。序列以已选择的基波UVW/UWV为参考，不等于电压畸变率或实际损耗。12槽10极齿绕的n=1系数sin²(π/12)，n=5系数sin²(5π/12)，作为独立三角函数基准。

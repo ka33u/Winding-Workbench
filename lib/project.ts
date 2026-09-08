@@ -1,3 +1,4 @@
+import { spatialSpectrum } from './harmonics.ts';
 import {
   DEFAULTS,
   generate,
@@ -15,7 +16,15 @@ export function encodeProject(d: Winding): string {
       params: d.params,
       coils: d.coils,
       netlist: netlist(d),
-      analysis: { phases: d.phases, harmonics: d.harmonics },
+      analysis: {
+        phases: d.phases,
+        harmonics: d.harmonics,
+        mechanicalHarmonics: spatialSpectrum(
+          d,
+          'mechanical',
+          Math.max(25, d.params.poles / 2),
+        ),
+      },
       conventions: {
         slotNumbering: '1-based clockwise',
         layerNumbering: '1-based',

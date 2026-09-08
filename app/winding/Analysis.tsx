@@ -2,9 +2,10 @@
 // Inline quantitative SVGs require the image role for their accessible chart descriptions.
 /* eslint-disable jsx-a11y/prefer-tag-over-role */
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, Pause, Play, Waves } from 'lucide-react';
+import { Pause, Play, Waves } from 'lucide-react';
+import { Harmonics } from './Harmonics';
 import { Slider } from '@/components/ui/slider';
-import { mmf, COLORS, PHASES, type Phase, type Winding } from '@/lib/winding';
+import { mmf, COLORS, type Phase, type Winding } from '@/lib/winding';
 
 export function Analysis({
   design,
@@ -49,73 +50,9 @@ export function Analysis({
         `${i ? 'H' : 'M'}${45 + (i / values.length) * 590}${i ? ' V' : ','}${146 - (v / bound) * 100} H${45 + ((i + 1) / values.length) * 590}`,
     )
     .join(' ');
-  const phaseList = phase === 'all' ? PHASES : [phase];
-  const harmonics = design.harmonics.filter((h) => h.order % 2 === 1);
   return (
     <div className="analysis-grid">
-      <section className="panel analysis-panel">
-        <div className="panel-title">
-          <h3>
-            <Activity size={17} />
-            空间谐波绕组系数
-          </h3>
-          <span>|kwν|</span>
-        </div>
-        <svg
-          viewBox="0 0 680 282"
-          role="img"
-          aria-label="1至25次奇次电气空间谐波绕组系数柱状图"
-        >
-          {[0, 0.25, 0.5, 0.75, 1].map((v) => (
-            <g key={v}>
-              <path
-                d={`M45,${232 - v * 190} H645`}
-                stroke="#e6ebf3"
-                strokeDasharray="3 4"
-              />
-              <text
-                x={31}
-                y={237 - v * 190}
-                textAnchor="end"
-                fill="#8c99ac"
-                fontSize={12}
-              >
-                {v}
-              </text>
-            </g>
-          ))}
-          {harmonics.map((h, i) => (
-            <g key={h.order}>
-              {phaseList.map((ph, j) => (
-                <rect
-                  key={ph}
-                  x={52 + i * 45 + j * 9}
-                  y={232 - h[ph] * 190}
-                  width={phaseList.length === 1 ? 19 : 7}
-                  height={Math.max(0.4, h[ph] * 190)}
-                  fill={COLORS[ph]}
-                  rx={2}
-                >
-                  <title>{`${ph} 相 ν=${h.order}，kw=${h[ph].toFixed(6)}`}</title>
-                </rect>
-              ))}
-              <text
-                x={63 + i * 45}
-                y={255}
-                textAnchor="middle"
-                fill="#8c99ac"
-                fontSize={12}
-              >
-                {h.order}
-              </text>
-            </g>
-          ))}
-        </svg>
-        <p className="analysis-note">
-          ν 为电气空间谐波次数；此图展示幅值，不是电压
-          THD。非整数电气次谐波需机械阶次分析。
-        </p>
-      </section>
+      <Harmonics design={design} phase={phase} />
       <section className="panel analysis-panel">
         <div className="panel-title">
           <h3>
