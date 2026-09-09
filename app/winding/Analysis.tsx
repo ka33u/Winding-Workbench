@@ -1,7 +1,7 @@
 'use client';
 // Inline quantitative SVGs require the image role for their accessible chart descriptions.
 /* eslint-disable jsx-a11y/prefer-tag-over-role */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Pause, Play, Waves } from 'lucide-react';
 import { Harmonics } from './Harmonics';
 import { useAnimationVisibility } from './useAnimationVisibility';
@@ -15,6 +15,7 @@ export function Analysis({
   design: Winding;
   phase: Phase | 'all';
 }) {
+  const angleLabelId = useId();
   const [angle, setAngle] = useState(0),
     [playing, setPlaying] = useState(false);
   const { target, visible } = useAnimationVisibility<HTMLElement>();
@@ -114,13 +115,13 @@ export function Analysis({
           ))}
         </svg>
         <div className="angle-control">
-          <span>电流相角</span>
+          <span id={angleLabelId}>电流相角</span>
           <Slider
             value={[angle]}
             min={0}
             max={360}
             step={1}
-            aria-label="电流相角"
+            aria-labelledby={angleLabelId}
             onValueChange={(v) => {
               setPlaying(false);
               setAngle(Array.isArray(v) ? v[0] : v);

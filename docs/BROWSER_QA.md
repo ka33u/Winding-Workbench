@@ -204,3 +204,31 @@ being present in the browser inventory. No authenticated hosted interaction pass
 is claimed. The earlier file chooser attempt also timed out before fixture
 assignment. Sustained animation performance, background-tab behavior, actual
 commercial-file comparison and physical-device coverage remain open.
+
+## Named MMF control and sustained maximum-model observation
+
+The in-app AX tree exposed the MMF range input as an unnamed slider: its label
+had been applied to the surrounding Slider root instead of reaching the input.
+Replaced that attribute with an aria-labelledby reference to the visible
+“电流相角” text. The installed Base UI1.7 root passes that reference to the thumb
+input; no vendored component was changed. After a production rebuild/restart and
+reload, AX reported “slider 电流相角”, and querying that named slider succeeded.
+Starting playback then pressing Home set0 and paused playback. ArrowRight set1;
+End set360; Home returned0. Typecheck, lint and production build passed.
+
+Generated360 slots /12 poles /12 paths /double layers through the form, producing
+360 coils and automatic pitch30. With MMF visible and tracing off,13 DOM angle
+observations spanned82.87 seconds. Eleven intervals of about5.04 seconds each
+advanced at34.91–35.10 degrees/second, consistent with the requested35-degree
+playback rate. One27.43-second gap between observation calls was excluded from
+rate calculation because the angle could complete multiple turns. These are
+coarse angle-continuity measurements, not browser frame-rate measurements; brief
+frame drops are not excluded. The read-only browser evaluator does not expose
+the performance clock needed by the attempted finer timing observation.
+
+Selecting a second local tab left the original document reporting visible and
+its angle advancing. This in-app-browser run therefore did not exercise the
+document.hidden branch of the pause hook. The temporary tab was closed, playback
+paused, and the user's54/8/a2/double/automaticy6 case restored with angle0. A
+fresh captured warning/error log query returned no entries. Standard-browser
+background-tab suspension and actual frame-rate profiling remain unverified.
