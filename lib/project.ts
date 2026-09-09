@@ -7,7 +7,7 @@ import {
   type Params,
   type Winding,
 } from './winding.ts';
-export const PROJECT_SCHEMA = 'winding-studio/v1';
+export const PROJECT_SCHEMA = 'winding-studio/v2';
 export function encodeProject(d: Winding): string {
   return JSON.stringify(
     {
@@ -28,10 +28,17 @@ export function encodeProject(d: Winding): string {
       conventions: {
         slotNumbering: '1-based clockwise',
         layerNumbering: '1-based',
-        pitch: 'difference in slots',
+        pitch:
+          d.params.windingType === 'concentric'
+            ? 'maximum absolute coil span in slots'
+            : 'difference in slots',
+        coilSpan: 'signed unwrapped return slot minus go slot',
         current: 'phase peak amperes',
         factor: 'absolute spatial winding factor',
-        model: 'three-phase equal-turn equal-pitch',
+        model:
+          d.params.windingType === 'concentric'
+            ? 'three-phase equal-turn concentric groups'
+            : 'three-phase equal-turn equal-pitch',
       },
     },
     null,
@@ -51,15 +58,28 @@ export function decodeProject(text: string): Params {
     !doc ||
     typeof doc !== 'object' ||
     Array.isArray(doc) ||
-    doc.schema !== PROJECT_SCHEMA ||
+    ![PROJECT_SCHEMA, 'winding-studio/v1'].includes(doc.schema) ||
     !doc.params ||
     typeof doc.params !== 'object'
   )
     throw new Error(
-      'E_FILE_SCHEMA：请选择本工作台导出的 winding-studio/v1 文件。',
+      'E_FILE_SCHEMA：请选择本工作台导出的 winding-studio/v1 或 v2 文件。',
+    );
+  if (
+    doc.schema === 'winding-studio/v1' &&
+    Object.hasOwn(doc.params, 'windingType') &&
+    doc.params.windingType !== 'lap'
+  )
+    throw new Error(
+      'E_FILE_SCHEMA：同心式方案需要 v2 格式，避免旧版将最大节距误解为等节距。',
     );
   const p = Object.fromEntries(
-    Object.keys(DEFAULTS).map((k) => [k, doc.params[k]]),
+    Object.keys(DEFAULTS).map((k) => [
+      k,
+      k === 'windingType' && doc.schema === 'winding-studio/v1'
+        ? 'lap'
+        : doc.params[k],
+    ]),
   ) as Params;
   const errors = validateParams(p);
   if (errors.length) throw new Error(`${errors[0].code}：${errors[0].reason}`);
@@ -82,6 +102,8 @@ export function coilCSV(d: Winding, phase = 'all', path = 0): string {
       'Turns',
       'NodeFrom',
       'NodeTo',
+      'SpanSlots',
+      'CoilGroup',
     ],
   ];
   for (const b of netlist(d).branches)
@@ -100,6 +122,8 @@ export function coilCSV(d: Winding, phase = 'all', path = 0): string {
             c.turns,
             c.from,
             c.to,
+            c.span,
+            c.group ?? '',
           ].map(String),
         );
   return (

@@ -41,6 +41,24 @@ const cases = [
   ...PRESETS.map((p) => p.params),
   { ...DEFAULTS, slots: 54, poles: 8, layers: 2, paths: 2, pitch: 6 },
   { ...DEFAULTS, slots: 360, poles: 12, layers: 2, paths: 12, pitch: 29 },
+  {
+    ...DEFAULTS,
+    slots: 54,
+    poles: 8,
+    layers: 2,
+    paths: 2,
+    pitch: 8,
+    windingType: 'concentric',
+  },
+  {
+    ...DEFAULTS,
+    slots: 360,
+    poles: 12,
+    layers: 2,
+    paths: 12,
+    pitch: 39,
+    windingType: 'concentric',
+  },
   { ...DEFAULTS, connection: 'delta', pitch: 9 },
 ];
 function layouts() {

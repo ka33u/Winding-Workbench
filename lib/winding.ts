@@ -1,3 +1,5 @@
+import { makeConcentric } from './concentric.ts';
+
 export type Phase = 'U' | 'V' | 'W';
 export const PHASES: Phase[] = ['U', 'V', 'W'];
 export const COLORS: Record<Phase, string> = {
@@ -11,6 +13,7 @@ export type Params = {
   paths: number;
   layers: number;
   pitch: number;
+  windingType: 'lap' | 'concentric';
   turns: number;
   connection: 'star' | 'delta';
   sequence: 'UVW' | 'UWV';
@@ -27,6 +30,9 @@ export type Coil = {
   goLayer: number;
   backLayer: number;
   turns: number;
+  /** Signed unwrapped distance from go to return slot. */
+  span: number;
+  group?: string;
 };
 export type Issue = {
   code: string;
@@ -66,6 +72,7 @@ export const DEFAULTS: Params = {
   paths: 2,
   layers: 2,
   pitch: 8,
+  windingType: 'lap',
   turns: 12,
   connection: 'star',
   sequence: 'UVW',
@@ -88,6 +95,19 @@ export const PRESETS = [
     name: '高槽数分布式',
     note: '72 槽 · 8 极 · 4 路',
     params: { ...DEFAULTS, slots: 72, poles: 8, paths: 4, pitch: 8 },
+  },
+  {
+    name: '单层同心式',
+    note: '24 槽 · 4 极 · 节距 5 / 7',
+    params: {
+      ...DEFAULTS,
+      slots: 24,
+      poles: 4,
+      layers: 1,
+      paths: 1,
+      pitch: 7,
+      windingType: 'concentric' as const,
+    },
   },
 ];
 const TAU = Math.PI * 2;
@@ -162,6 +182,16 @@ export function validateParams(p: Params): Issue[] {
         'connection',
       ),
     );
+  if (!['lap', 'concentric'].includes(p.windingType))
+    errors.push(
+      issue(
+        'E_WINDING_TYPE',
+        '绕组形式无效',
+        '支持等节距叠绕和同心式线圈组。',
+        '重新选择绕组形式。',
+        'windingType',
+      ),
+    );
   if (!['UVW', 'UWV'].includes(p.sequence))
     errors.push(
       issue(
@@ -213,7 +243,7 @@ export function validateParams(p: Params): Issue[] {
         'slots',
       ),
     );
-  if (p.layers === 1 && p.pitch % 2 === 0)
+  if (p.windingType === 'lap' && p.layers === 1 && p.pitch % 2 === 0)
     errors.push(
       issue(
         'E_SINGLE_PITCH',
@@ -285,6 +315,7 @@ function assign(
     goLayer,
     backLayer,
     turns: p.turns,
+    span: p.pitch,
   };
   const a = degrees(coilVector(c, p));
   let best = Infinity,
@@ -302,6 +333,7 @@ function assign(
   if (sign < 0) {
     [c.go, c.back] = [c.back, c.go];
     [c.goLayer, c.backLayer] = [c.backLayer, c.goLayer];
+    c.span = -c.span;
   }
   return c;
 }
@@ -332,7 +364,7 @@ function symmetry(coils: Coil[], p: Params) {
       Math.min(...sizes) > 1e-8,
   };
 }
-function makeCoils(p: Params): Coil[] | null {
+function makeLapCoils(p: Params): Coil[] | null {
   const step = (360 * gcd(p.slots, p.poles / 2)) / p.slots;
   const offsets = [step / 4, 0, step / 2, 15, 30 - step / 4];
   if (p.layers === 2) {
@@ -387,7 +419,9 @@ function vectorGroups(coils: Coil[], p: Params): Coil[][] {
   const groups = new Map<string, Coil[]>();
   for (const c of coils) {
     const v = coilVector(c, p);
-    const key = `${Math.round((v.re / c.turns) * 1e7)}:${Math.round((v.im / c.turns) * 1e7)}`;
+    // Complementary concentric spans can have equal odd-harmonic EMF but different
+    // conductor lengths. Each path must contain the same coil-span inventory.
+    const key = `${Math.round((v.re / c.turns) * 1e7)}:${Math.round((v.im / c.turns) * 1e7)}:${Math.abs(c.span)}`;
     groups.set(key, [...(groups.get(key) || []), c]);
   }
   return [...groups.values()];
@@ -462,6 +496,20 @@ export function auditCoils(coils: Coil[], p: Params): Issue[] {
         ),
       ];
     ids.add(c.id);
+    if (
+      !Number.isInteger(c.span) ||
+      c.span === 0 ||
+      Math.abs(c.span) >= p.slots ||
+      mod(c.go - 1 + c.span, p.slots) + 1 !== c.back
+    )
+      issues.push(
+        issue(
+          'E_COIL_SPAN',
+          '线圈节距与去回槽不一致',
+          `线圈 ${c.id} 的有向节距不能连接到指定回槽。`,
+          '检查实际节距和去回槽。',
+        ),
+      );
     for (const [slot, layer] of [
       [c.go, c.goLayer],
       [c.back, c.backLayer],
@@ -541,6 +589,22 @@ export function auditCoils(coils: Coil[], p: Params): Issue[] {
           'paths',
         ),
       );
+    const spans = groups.map((g) =>
+      g
+        .map((c) => Math.abs(c.span))
+        .sort((a, b) => a - b)
+        .join(','),
+    );
+    if (new Set(spans).size > 1)
+      issues.push(
+        issue(
+          'E_BRANCH_SPANS',
+          `${ph} 相支路线圈节距组成不同`,
+          '电势相同不代表导线长度相同；各路必须具有相同的线圈节距组成。',
+          '按实际节距重新均分线圈或减少路数。',
+          'paths',
+        ),
+      );
     if (
       groups.some((g) =>
         g
@@ -565,16 +629,27 @@ export function generate(p: Params): Result {
   const start = performance.now(),
     issues = validateParams(p);
   if (issues.length) return { ok: false, issues };
-  const coils = makeCoils(p);
+  const coils =
+    p.windingType === 'concentric'
+      ? makeConcentric(p, makeLapCoils)
+      : makeLapCoils(p);
   if (!coils)
     return {
       ok: false,
       issues: [
         issue(
-          'E_LAYOUT_NOT_FOUND',
-          '未找到对称等节距排列',
-          '当前槽极、节距与层数在本生成器的相带及匹配搜索中未找到通过验证的方案；这不是所有特殊绕组不存在的证明。',
-          '尝试相邻奇数节距、双层或示例参数。',
+          p.windingType === 'concentric'
+            ? 'E_CONCENTRIC_NOT_FOUND'
+            : 'E_LAYOUT_NOT_FOUND',
+          p.windingType === 'concentric'
+            ? '未找到符合最大节距的同心式线圈组'
+            : '未找到对称等节距排列',
+          p.windingType === 'concentric'
+            ? '当前相带重排未形成包含至少两个嵌套线圈的有效组，或最内线圈节距不足。搜索未通过不代表所有特殊同心式绕组不存在。'
+            : '当前槽极、节距与层数在本生成器的相带及匹配搜索中未找到通过验证的方案；这不是所有特殊绕组不存在的证明。',
+          p.windingType === 'concentric'
+            ? '尝试自动最大节距、增大最大节距，或选择等节距叠绕。'
+            : '尝试相邻奇数节距、双层或示例参数。',
           'pitch',
         ),
       ],
@@ -587,7 +662,7 @@ export function generate(p: Params): Result {
         issue(
           'E_PATH_PARTITION',
           '当前路数未找到等势分组',
-          '线圈数可均分，但等电势线圈类别不能平均分入每条支路。',
+          '线圈数可均分，但各路无法同时满足相同电势和相同实际节距组成。',
           `已验证可用路数：${possiblePaths.join('、')}。`,
           'paths',
         ),
@@ -652,9 +727,15 @@ export function generate(p: Params): Result {
     issues.push(
       issue(
         'W_LONG_PITCH',
-        '节距超过一极距',
-        '长距绕组可能增加端部长度，需要结合制造条件确认。',
-        '优先比较不超过极距的节距。',
+        p.windingType === 'concentric'
+          ? '外侧线圈跨越一个极距'
+          : '节距超过一极距',
+        p.windingType === 'concentric'
+          ? '同心式外侧线圈可长于极距；实际端部长度需结合线圈组与制造条件确认。'
+          : '长距绕组可能增加端部长度，需要结合制造条件确认。',
+        p.windingType === 'concentric'
+          ? '按各线圈实际节距核对端部空间。'
+          : '优先比较不超过极距的节距。',
         'pitch',
         'warning',
       ),

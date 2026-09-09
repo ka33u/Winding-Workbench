@@ -100,6 +100,24 @@ test('unrolled roof paths and every bottom series link follow the electrical net
   for (const p of [
     ...PRESETS.map((p) => p.params),
     { ...DEFAULTS, slots: 54, poles: 8, layers: 2, paths: 2, pitch: 6 },
+    {
+      ...DEFAULTS,
+      slots: 54,
+      poles: 8,
+      layers: 2,
+      paths: 2,
+      pitch: 8,
+      windingType: 'concentric',
+    },
+    {
+      ...DEFAULTS,
+      slots: 360,
+      poles: 12,
+      layers: 2,
+      paths: 12,
+      pitch: 39,
+      windingType: 'concentric',
+    },
     { ...DEFAULTS, pitch: 28 },
     { ...DEFAULTS, slots: 6, poles: 2, pitch: 3, layers: 1, paths: 1 },
   ]) {
@@ -122,9 +140,7 @@ test('phase and path filters retain whole branches; partial branches retain expl
   assert.equal(oneBranch.leads.length, 2);
   const pair = check(
     d,
-    d.coils.filter(
-      (c) => c.phase === 'V' && c.path === 1 && c.order > 1,
-    ),
+    d.coils.filter((c) => c.phase === 'V' && c.path === 1 && c.order > 1),
   );
   assert.ok(pair.leads.some((l) => l.kind === 'continuation'));
   assert.ok(

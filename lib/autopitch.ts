@@ -10,9 +10,19 @@ import {
 export function autoPitchCandidates(p: Params): number[] {
   // Use an admissible pitch to check all pitch-independent constraints first.
   if (validateParams({ ...p, pitch: 1 }).length) return [];
-  const maximum = Math.max(1, Math.floor(p.slots / p.poles));
+  const maximum = Math.min(
+    p.slots - 1,
+    Math.max(
+      1,
+      Math.floor(p.slots / p.poles) +
+        (p.windingType === 'concentric'
+          ? Math.ceil(p.slots / (3 * p.poles)) - 1
+          : 0),
+    ),
+  );
   return Array.from({ length: maximum }, (_, i) => maximum - i).filter(
-    (pitch) => p.layers !== 1 || pitch % 2 === 1,
+    (pitch) =>
+      p.windingType === 'concentric' || p.layers !== 1 || pitch % 2 === 1,
   );
 }
 
@@ -40,7 +50,7 @@ export function generateAuto(p: Params): Result {
       {
         code: 'E_AUTO_PITCH_NOT_FOUND',
         message: '自动节距范围内未找到有效连接',
-        reason: `已从 ${candidates[0]} 槽向下检查 ${candidates.length} 个${p.layers === 1 ? '奇数' : '整槽'}节距，均未通过当前生成器的校验。搜索范围有限，不代表所有特殊绕组均不存在。`,
+        reason: `已从 ${candidates[0]} 槽向下检查 ${candidates.length} 个${p.windingType === 'concentric' ? '最大' : p.layers === 1 ? '奇数' : '整槽'}节距，均未通过当前生成器的校验。搜索范围有限，不代表所有特殊绕组均不存在。`,
         fix: '切换手动节距比较其他方案，或调整槽极、层数、路数。',
         field: 'pitch',
         severity: 'error',

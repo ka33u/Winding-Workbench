@@ -1,4 +1,4 @@
-import { netlist, mod, type Coil, type Winding } from './winding.ts';
+import { netlist, type Coil, type Winding } from './winding.ts';
 import { decorateRoutes, type RouteDecoration } from './route-clearance.ts';
 
 export type Point = { x: number; y: number };
@@ -89,7 +89,7 @@ export function unrolledLayout(
   design: Winding,
   visible: Coil[],
 ): UnrolledLayout {
-  const { slots, layers, pitch } = design.params;
+  const { slots, layers } = design.params;
   const shown = new Set(visible.map((c) => c.id));
   const rawLinks: { from: Coil; to: Coil; node: string }[] = [];
   const rawLeads: Omit<LeadRoute, 'points'>[] = [];
@@ -141,7 +141,7 @@ export function unrolledLayout(
   const coils = visible.map((coil): CoilRoute => {
     const a = x(coil.go, coil.goLayer),
       backX = x(coil.back, coil.backLayer);
-    const delta = mod(coil.back - coil.go, slots) === pitch ? pitch : -pitch;
+    const delta = coil.span;
     const b = backX + ((coil.go + delta - coil.back) / slots) * period;
     const rise =
       Math.min(110, Math.max(28, Math.abs(b - a) * 0.32)) +

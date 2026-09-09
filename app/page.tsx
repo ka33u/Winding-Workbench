@@ -266,13 +266,33 @@ export default function Home() {
                 <Layers3 size={16} />
                 绕组配置
               </h2>
+              <div className="field full">
+                <span>绕组形式</span>
+                <Choice
+                  label="绕组形式"
+                  value={params.windingType}
+                  options={[
+                    ['lap', '叠绕 · 等节距'],
+                    ['concentric', '同心式 · 线圈组'],
+                  ]}
+                  onChange={(v) => {
+                    update('windingType', v as Params['windingType']);
+                    setAutomaticPitch(true);
+                  }}
+                />
+              </div>
               <div className="field full pitch-mode">
                 <span>节距选择</span>
                 <Choice
                   label="节距选择"
                   value={automaticPitch ? 'auto' : 'manual'}
                   options={[
-                    ['auto', '自动 · 接近一个极距'],
+                    [
+                      'auto',
+                      params.windingType === 'concentric'
+                        ? '自动 · 按线圈组选择'
+                        : '自动 · 接近一个极距',
+                    ],
                     ['manual', '手动指定节距'],
                   ]}
                   onChange={(v) => {
@@ -284,7 +304,11 @@ export default function Home() {
               <div className="field-grid">
                 <label className="field">
                   <span>
-                    {automaticPitch ? '已生成节距' : '线圈节距'}
+                    {params.windingType === 'concentric'
+                      ? '最大线圈节距'
+                      : automaticPitch
+                        ? '已生成节距'
+                        : '线圈节距'}
                     <i>y</i>
                   </span>
                   <input
@@ -329,9 +353,11 @@ export default function Home() {
                 </label>
               </div>
               <p className="field-note" id="pitch-guidance">
-                {automaticPitch
-                  ? '从不超过一极距的最大整槽节距向下检查，采用首个有效方案；单层仅选奇数，极距不足一槽时试 1 槽。此规则不优化谐波或端部长度。'
-                  : '节距按槽数之差计：1 → 9 为 8 槽。'}
+                {params.windingType === 'concentric'
+                  ? '最大节距指最外侧线圈的槽数跨度；同组线圈共中心、节距不同。各线圈实际节距见下方明细。自动按极距及相带宽度向下搜索。'
+                  : automaticPitch
+                    ? '从不超过一极距的最大整槽节距向下检查，采用首个有效方案；单层仅选奇数，极距不足一槽时试 1 槽。此规则不优化谐波或端部长度。'
+                    : '节距按槽数之差计：1 → 9 为 8 槽。'}
               </p>
               <div className="field full">
                 <span>端子接法</span>
@@ -439,7 +465,7 @@ export default function Home() {
           </div>
           <div className="sidebar-foot">
             <CircleHelp size={15} />
-            <span>三相 · 等匝 · 等节距绕组</span>
+            <span>三相 · 等匝 · 单层 / 双层</span>
           </div>
         </aside>
         <main className="main-area">

@@ -69,6 +69,13 @@ export function WorkspacePanel({
     Math.max(0, Math.ceil(coils.length / 30) - 1),
   );
   const selectedCoil = coils.find((c) => c.id === selected);
+  const coilSpans = useMemo(
+    () =>
+      Array.from(new Set(design.coils.map((c) => Math.abs(c.span)))).sort(
+        (a, b) => a - b,
+      ),
+    [design],
+  );
   useEffect(() => {
     const mq = matchMedia('(prefers-reduced-motion: reduce)');
     const stop = () => {
@@ -134,6 +141,15 @@ export function WorkspacePanel({
               {VIEWS.find((v) => v[0] === view)?.[1]}
               <span className="canvas-count">{coils.length} 个线圈</span>
             </h3>
+            {design.params.windingType === 'concentric' && (
+              <p className="field-note">
+                同心式 · 实际节距{' '}
+                {coilSpans.length <= 8
+                  ? coilSpans.join(' / ')
+                  : `${coilSpans[0]}–${coilSpans.at(-1)}（${coilSpans.length} 种）`}{' '}
+                槽
+              </p>
+            )}
           </div>
           <div className="phase-filter" aria-label="显示相别">
             {(['all', ...PHASES] as const).map((ph) => (
@@ -317,6 +333,10 @@ export function WorkspacePanel({
               {selectedCoil.turns}匝 · 第{selectedCoil.path}路 / 顺序
               {selectedCoil.order}
             </span>
+            <span>
+              节距 {Math.abs(selectedCoil.span)} 槽
+              {selectedCoil.group ? ` · 组 ${selectedCoil.group}` : ''}
+            </span>
             <button
               className="icon-button"
               aria-label="取消线圈选择"
@@ -376,6 +396,7 @@ export function WorkspacePanel({
                 '去边（槽 / 层）',
                 '回边（槽 / 层）',
                 '匝数',
+                '节距',
                 '串联次序',
                 '定位',
               ].map((s) => (
@@ -402,6 +423,7 @@ export function WorkspacePanel({
                   {c.back} / L{c.backLayer}
                 </TableCell>
                 <TableCell>{c.turns}</TableCell>
+                <TableCell>{Math.abs(c.span)}</TableCell>
                 <TableCell>{c.order}</TableCell>
                 <TableCell>
                   <button
