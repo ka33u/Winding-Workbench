@@ -99,6 +99,7 @@ function check(d, cs = d.coils) {
 test('unrolled roof paths and every bottom series link follow the electrical netlist, including wrapped and long-pitch coils', () => {
   for (const p of [
     ...PRESETS.map((p) => p.params),
+    { ...DEFAULTS, slots: 54, poles: 8, layers: 2, paths: 2, pitch: 6 },
     { ...DEFAULTS, pitch: 28 },
     { ...DEFAULTS, slots: 6, poles: 2, pitch: 3, layers: 1, paths: 1 },
   ]) {

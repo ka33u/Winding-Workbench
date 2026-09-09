@@ -112,6 +112,38 @@ test('integer coil division alone does not qualify parallel paths', () => {
   assert.equal(r.ok, false);
   assert.equal(r.issues[0].code, 'E_PATH_PARTITION');
 });
+test('user 54-slot 8-pole double-layer pitch-6 design supports two equal branches, not four', () => {
+  const params = { ...DEFAULTS, slots: 54, poles: 8, layers: 2, pitch: 6 };
+  // Nine oriented slot phasors per phase belt, spaced by 20/3 degrees,
+  // and a coil span of 160 electrical degrees give this independent formula.
+  const kw = (Math.sin(Math.PI / 6) / (9 * Math.sin(Math.PI / 54))) *
+    Math.sin(4 * Math.PI / 9);
+  for (const connection of ['star', 'delta']) {
+    for (const paths of [1, 2]) {
+      const d = design({ ...params, connection, paths });
+      assert.equal(d.coils.length, 54);
+      assert.deepEqual(d.possiblePaths, [1, 2]);
+      for (const phase of d.phases) {
+        assert.equal(phase.count, 18);
+        near(phase.kw, kw);
+        near(phase.branchError, 0);
+        assert.equal(phase.turns, 18 * params.turns / paths);
+      }
+      const branches = netlist(d).branches;
+      assert.equal(branches.length, 3 * paths);
+      assert.ok(branches.every((b) => b.coils.length === 18 / paths));
+    }
+    for (const calculate of [generate, generateAuto]) {
+      const r = calculate({ ...params, connection, paths: 4 });
+      assert.equal(r.ok, false);
+      const error = r.issues.find((i) => i.code === 'E_PATH_COIL_COUNT');
+      assert.ok(error);
+      assert.match(error.reason, /每相 18 个/);
+      assert.match(error.reason, /每路 4\.5 个/);
+      assert.match(error.fix, /电势/);
+    }
+  }
+});
 test('slot, identity, direction, branch and order corruption are rejected', () => {
   const d = design({});
   const mutate = (fn) => {

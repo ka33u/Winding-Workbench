@@ -49,9 +49,9 @@ P是极数，p=P/2；y为两个槽号的距离（不把首尾槽计数作为节�
 
 - [编码前调研和计划](docs/RESEARCH_AND_PLAN.md)
 - [验收状态与继续工作记录](docs/ACCEPTANCE.md)
-- `tests/winding.test.mjs`：公开基准、450组合扫描、结构和电气不变量、错误输入、文件输入边界。
+- `tests/winding.test.mjs`：公开基准、300组合扫描、54槽8极实际方案、结构和电气不变量、错误输入、文件输入边界。
 - `tests/render.test.mjs`：生成SVG的语义与过滤检查（不是浏览器视觉验收）。
-- `tests/webmcp.test.mjs`：工具契约的函数级验证（不是实际浏览器WebMCP环境验证）。
+- `tests/webmcp.test.mjs`：工具契约的函数级验证；本地生产浏览器中的注册、生成、非法输入和相别切换实测另见浏览器报告。
 - `tests/autopitch.test.mjs`：四项输入生成、自动节距公开公式对照、错误分类、最大规模及保存恢复。
 
 生成器和图形代码为本项目实现；研究资料链接见调研记录。脚手架的未改动UI组件保留原样，不纳入项目代码lint，仍参与TypeScript编译。

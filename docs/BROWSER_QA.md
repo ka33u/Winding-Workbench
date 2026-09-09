@@ -129,9 +129,9 @@ The local production runner now persists Wrangler state in the project's ignored
 this explicit path relative to the working directory. This prevents browser smoke
 testing from adding runtime SQLite state to the deployment archive.
 
-Still unverified: authenticated hosted interaction, physical mobile devices,
-supported-browser WebMCP execution, sustained performance, and comparison with
-actual commercial-software engineering samples.
+At that point, authenticated hosted interaction, physical mobile devices,
+WebMCP execution, sustained performance and commercial engineering comparison
+remained unverified. Subsequent evidence is recorded below.
 
 ## Animation visibility and two-layer scope follow-up
 
@@ -172,3 +172,35 @@ pitch, import and WebMCP tests, not by this incomplete file-picker attempt.
 The production request log confirmed `/favicon.svg` returned HTTP 200 after the
 metadata fix. The current 34-test suite passes; its 300 single/double-layer
 parameter combinations comprise 232 accepted designs and 68 reasoned rejections.
+
+## User's 54-slot / 8-pole / double-layer / pitch-6 case
+
+The in-app browser now supports local production interaction. Its WebMCP tools
+registered and executed: 36-slot single-layer generation returned18 coils;
+double-layer returned36; requesting layer4 returned E_RANGE_LAYERS and left the
+previous valid72-coil design unchanged. Phase switching also updated the visible
+diagram. Warning/error logs captured at that checkpoint were empty; this is not
+a guarantee that every browser session has no errors.
+
+On the user's54-slot case,2 paths produced54 coils,18 per phase,9 per branch,
+kw1=0.9409528389575208 and possiblePaths=[1,2]. The desktop screenshot showed
+separated lower routing lanes, explicit bridges and unobscured direction arrows
+in the visible area. The390x844 viewport showed theU-only18-coil drawing, all
+four view tabs and the branch/zoom controls; the wide diagram scrolls internally.
+The viewport override was reset after inspection. This is device emulation,
+not a physical-phone test.
+
+After rebuilding the error explanation, started a fresh local production Worker
+at localhost:3001 (the previous retained process handle was missing), verified
+HTTP200, and navigated the existing local test tab there. Through the actual
+form, changing2 to4 paths and pressing Generate displayed E_PATH_COIL_COUNT and
+the calculation “每相18个；4路需要每路4.5个线圈”. Restoring2 regenerated the valid
+design. U-phase filtering showed18 coils; selecting branch1 showed9 in both the
+unrolled heading and table. The circuit view screenshot showed the same nine-
+coil branch. The35-test suite, typecheck, lint and production build passed.
+
+Hosted navigation/AX inspection timed out twice despite the published tab title
+being present in the browser inventory. No authenticated hosted interaction pass
+is claimed. The earlier file chooser attempt also timed out before fixture
+assignment. Sustained animation performance, background-tab behavior, actual
+commercial-file comparison and physical-device coverage remain open.

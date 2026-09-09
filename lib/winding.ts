@@ -239,8 +239,8 @@ export function validateParams(p: Params): Issue[] {
       issue(
         'E_PATH_COIL_COUNT',
         '线圈数不能均分支路',
-        `${count} 个线圈不能平均分到 3 相 × ${p.paths} 路。`,
-        '减少路数，或使用线圈数的公约数。',
+        `${count} 个线圈分为 3 相，每相 ${Number((count / 3).toFixed(4))} 个；${p.paths} 路需要每路 ${Number((count / (3 * p.paths)).toFixed(4))} 个线圈，不是整数，等匝线圈无法均分。`,
+        '选择能整除每相线圈数的路数，再检查各支路的串联匝数和电势。',
         'paths',
       ),
     );

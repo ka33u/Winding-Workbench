@@ -40,3 +40,9 @@
 ## 机械阶次补充（2026-09-08）
 
 依据 [SWAT-EM Theory](https://swat-em.readthedocs.io/en/latest/theory.html) 和 [Motor-CAD Winding Pattern](https://ansyshelp.ansys.com/public/Views/Secured/MotorCAD/v252/en/Motor-CAD_UG/MotorCAD/topics/windingpattern.html)，机械阶次 n 与电气阶次 ν 满足 n=νp。将槽安匝系数直接投影到exp(jnθs)，可保留电气非整数次谐波；只绘制整数ν会漏掉这些分量。新增机械/电气切换、1–240阶显示和相轴序列分解。序列以已选择的基波UVW/UWV为参考，不等于电压畸变率或实际损耗。12槽10极齿绕的n=1系数sin²(π/12)，n=5系数sin²(5π/12)，作为独立三角函数基准。
+
+## 用户工程样例：54槽8极双层节距6（2026-09-09）
+
+用户给出每相2路并询问能否改4路。重新查阅Motor-CAD官方Winding Feasibility：Q/(m·a)必须为整数，P/a和槽星形对称条件也需成立。本例54/(3·4)=4.5，等匝线圈无法均分为4路；2路则每相18线圈、每路9线圈。本生成器的等势分组结果为1/2路，Y/Δ接法不改变线圈计数结论。
+
+独立数值对照：折回同向的相带有9种相量位置，相邻相差20/3电角度；分布系数为sin(30°)/(9sin(10/3°))，节距6对应160电角度，短距系数sin(80°)。乘积kw1=0.9409528389575208，与三相线圈边直接求和一致。该样例新增回归测试并进行本地生产浏览器实测；尚未运行对应Motor-CAD商业工程，不能将公开规则/公式对照当作商业软件实测。
