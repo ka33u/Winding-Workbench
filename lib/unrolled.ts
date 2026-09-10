@@ -1,5 +1,9 @@
 import { netlist, type Coil, type Winding } from './winding.ts';
-import { decorateRoutes, type RouteDecoration } from './route-clearance.ts';
+import {
+  decorateRoutes,
+  type RouteDecoration,
+  type RouteArrow,
+} from './route-clearance.ts';
 
 export type Point = { x: number; y: number };
 export type CoilRoute = {
@@ -38,6 +42,7 @@ export type UnrolledLayout = {
   links: SeriesRoute[];
   leads: LeadRoute[];
   decorations: Record<string, RouteDecoration>;
+  roofArrows: Record<string, RouteArrow[]>;
   fanoutTop: number;
   fanoutBottom: number;
 };
@@ -136,16 +141,14 @@ export function unrolledLayout(
   const gap = layers === 1 ? 0 : 8;
   const x = (slot: number, layer: number) =>
     left + (slot - 0.5) * step + (layer - (layers + 1) / 2) * gap;
-  const top = 156 + Math.max(0, layers / 2 - 1) * 6,
-    bottom = top + 176;
+  const top = 98,
+    bottom = top + 148;
   const coils = visible.map((coil): CoilRoute => {
     const a = x(coil.go, coil.goLayer),
       backX = x(coil.back, coil.backLayer);
     const delta = coil.span;
     const b = backX + ((coil.go + delta - coil.back) / slots) * period;
-    const rise =
-      Math.min(110, Math.max(28, Math.abs(b - a) * 0.32)) +
-      Math.floor((coil.goLayer - 1) / 2) * 6;
+    const rise = Math.min(42, Math.max(22, Math.abs(b - a) * 0.14));
     const points = [
       { x: a, y: bottom },
       { x: a, y: top },
@@ -196,7 +199,7 @@ export function unrolledLayout(
       lanes.push([]);
     }
     lanes[lane].push(...intervals);
-    const y = bottom + 32 + lane * 16;
+    const y = bottom + 20 + lane * 16;
     const points = [
       { x: a, y: bottom },
       { x: a, y },
@@ -205,10 +208,10 @@ export function unrolledLayout(
     ];
     return { ...link, lane, pieces: periodicPieces(points, left, right) };
   });
-  const wireBottom = bottom + 32 + Math.max(0, lanes.length - 1) * 16;
-  const fanoutTop = wireBottom + 32;
-  const fanoutBottom = fanoutTop + 76;
-  const terminalY = fanoutBottom + 60;
+  const wireBottom = bottom + 20 + Math.max(0, lanes.length - 1) * 16;
+  const fanoutTop = wireBottom + 24;
+  const fanoutBottom = fanoutTop + 36;
+  const terminalY = fanoutBottom + 36;
   const leadAnchors = rawLeads
     .map((lead) => ({
       ...lead,
@@ -219,17 +222,20 @@ export function unrolledLayout(
     }))
     .sort((a, b) => a.anchor - b.anchor || a.coil.id.localeCompare(b.coil.id));
   const positions: number[] = [];
+  const terminalMargin = Math.min(32, step / 2 - gap / 2);
   leadAnchors.forEach((lead, i) => {
     positions[i] = Math.max(
       lead.anchor,
-      left + 32,
+      left + terminalMargin,
       i ? positions[i - 1] + 74 : 0,
     );
   });
   for (let i = positions.length - 1; i >= 0; i--)
     positions[i] = Math.min(
       positions[i],
-      i === positions.length - 1 ? right - 32 : positions[i + 1] - 74,
+      i === positions.length - 1
+        ? right - terminalMargin
+        : positions[i + 1] - 74,
     );
   const leads = leadAnchors.map(({ anchor, ...lead }, i): LeadRoute => {
     return {
@@ -254,8 +260,50 @@ export function unrolledLayout(
       arrows: false,
     })),
   ]);
+  const roofSegments = coils
+    .flatMap(({ coil, pieces }) =>
+      pieces.flatMap((p) =>
+        p.slice(1).map((b, i) => ({ id: coil.id, a: p[i], b })),
+      ),
+    )
+    .filter(({ a, b }) => a.y <= top && b.y <= top);
+  const distance = (p: Point, a: Point, b: Point) => {
+    const dx = b.x - a.x,
+      dy = b.y - a.y;
+    const t = Math.max(
+      0,
+      Math.min(
+        1,
+        ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1),
+      ),
+    );
+    return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+  };
+  const roofArrows: Record<string, RouteArrow[]> = Object.fromEntries(
+    coils.map((c) => [c.coil.id, []]),
+  );
+  for (const segment of roofSegments) {
+    const { a, b } = segment;
+    if (Math.hypot(b.x - a.x, b.y - a.y) < 30) continue;
+    for (const t of [0.35, 0.65, 0.5, 0.2, 0.8]) {
+      const point = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      if (point.x < left + 10 || point.x > right - 10) continue;
+      if (
+        roofSegments.some(
+          (s) => s !== segment && distance(point, s.a, s.b) < 10,
+        )
+      )
+        continue;
+      roofArrows[segment.id].push({
+        ...point,
+        angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
+      });
+      break;
+    }
+  }
   return {
     decorations,
+    roofArrows,
     fanoutTop,
     fanoutBottom,
     width,

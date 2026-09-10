@@ -109,6 +109,11 @@ export const PRESETS = [
       windingType: 'concentric' as const,
     },
   },
+  {
+    name: '18 槽参考方案',
+    note: '18 槽 · 4 极 · 双层节距 4',
+    params: { ...DEFAULTS, slots: 18, poles: 4, layers: 2, paths: 1, pitch: 4 },
+  },
 ];
 const TAU = Math.PI * 2;
 export const mod = (n: number, d: number) => ((n % d) + d) % d;
@@ -450,8 +455,14 @@ function connect(coils: Coil[], p: Params): number[] {
         .filter((c) => c.phase === ph && c.path === path)
         .sort(
           (a, b) =>
+            // Follow coil centres around the stator, including reversed coils.
+            // Grouping all upper-layer go sides first makes long return jumps
+            // and moves the phase tail into the middle of the developed winding.
+            mod(a.go - 1 + a.span / 2, p.slots) -
+              mod(b.go - 1 + b.span / 2, p.slots) ||
+            Math.abs(b.span) - Math.abs(a.span) ||
             a.goLayer - b.goLayer ||
-            Math.min(a.go, a.back) - Math.min(b.go, b.back),
+            a.go - b.go,
         )
         .forEach((c, i) => {
           c.order = i + 1;

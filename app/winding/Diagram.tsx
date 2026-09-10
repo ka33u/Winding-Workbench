@@ -27,6 +27,7 @@ export type DiagramProps = {
   animate?: boolean;
   showConnections?: boolean;
   showDirections?: boolean;
+  periodicContext?: boolean;
 };
 export const VIEWS: [View, string][] = [
   ['linear', '绕组展开'],
@@ -52,6 +53,7 @@ export function Diagram({
   animate = false,
   showConnections = true,
   showDirections = true,
+  periodicContext = true,
 }: DiagramProps) {
   const cs = useMemo(
     () => visibleCoils(design, phase, path),
@@ -102,11 +104,20 @@ export function Diagram({
         pointerEvents="none"
       />
     ) : null;
+  let originX = 0;
   let width = 1080,
     height = 440,
     content: React.ReactNode;
   if (view === 'linear') {
-    width = linear!.width;
+    const contextSlots = periodicContext
+      ? Math.min(
+          Math.ceil(Math.max(...cs.map((c) => Math.abs(c.span)), 1)),
+          Math.floor(slots / 2),
+        )
+      : 0;
+    const contextWidth = contextSlots * linear!.step;
+    originX = -contextWidth;
+    width = linear!.width + 2 * contextWidth;
     height = showConnections ? linear!.height : linear!.bottom + 62;
     content = (
       <LinearWinding
@@ -117,6 +128,7 @@ export function Diagram({
         animate={animate}
         showConnections={showConnections}
         showDirections={showDirections}
+        contextWidth={contextWidth}
       />
     );
   } else if (view === 'circuit') {
@@ -505,7 +517,7 @@ export function Diagram({
         xmlns="http://www.w3.org/2000/svg"
         className="winding-svg"
         data-export-diagram="true"
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox={`${originX} 0 ${width} ${height}`}
         style={{
           width: `${zoom * 100}%`,
           minWidth:
@@ -534,6 +546,7 @@ export function Diagram({
           </pattern>
         </defs>
         <rect
+          x={originX}
           width={width}
           height={height}
           fill={view === 'linear' ? '#fff' : '#fcfdff'}

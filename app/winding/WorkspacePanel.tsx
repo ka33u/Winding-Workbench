@@ -50,6 +50,7 @@ export function WorkspacePanel({
     [animate, setAnimate] = useState(false),
     [showConnections, setShowConnections] = useState(true),
     [showDirections, setShowDirections] = useState(true),
+    [periodicContext, setPeriodicContext] = useState(true),
     [selected, setSelected] = useState<string | null>(null),
     [page, setPage] = useState(0);
   const { target: area, visible: diagramVisible } =
@@ -270,6 +271,7 @@ export function WorkspacePanel({
                   animate={animate}
                   showConnections={showConnections}
                   showDirections={showDirections}
+                  periodicContext={periodicContext}
                 />
               </TabsContent>
             ))}
@@ -278,6 +280,15 @@ export function WorkspacePanel({
         <div className="drawing-footer">
           {view === 'linear' && (
             <>
+              <label className="motion-switch" htmlFor="show-periodic-context">
+                <Switch
+                  id="show-periodic-context"
+                  checked={periodicContext}
+                  onCheckedChange={setPeriodicContext}
+                  aria-label="显示相邻周的跨界延续"
+                />
+                连续展开
+              </label>
               <label
                 className="motion-switch"
                 htmlFor="show-series-connections"

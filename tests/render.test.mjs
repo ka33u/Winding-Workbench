@@ -125,3 +125,37 @@ test('direction and terminal symbols are painted after all base wires and crossi
   assert.ok(html.indexOf('data-route-arrow=') > overlay);
   assert.ok(html.includes('跨接拱桥表示跨线不相连'));
 });
+
+test('continuous development repeats only neighboring context and exports self-contained SVG references', () => {
+  const d = generate({
+    ...DEFAULTS,
+    slots: 18,
+    poles: 4,
+    paths: 1,
+    pitch: 4,
+  }).design;
+  for (const periodicContext of [true, false]) {
+    const html = renderToStaticMarkup(
+      React.createElement(Diagram, {
+        design: d,
+        phase: 'U',
+        view: 'linear',
+        periodicContext,
+      }),
+    );
+    assert.equal((html.match(/data-coil-anchor=/g) || []).length, 6);
+    assert.equal((html.match(/data-series-from=/g) || []).length, 5);
+    assert.equal(
+      (html.match(/<g tabindex="0" role="button"/g) || []).length,
+      1,
+    );
+    assert.equal(
+      (html.match(/data-periodic-context=/g) || []).length,
+      periodicContext ? 2 : 0,
+    );
+    const uses = [...html.matchAll(/<use href="#([^"]+)"/g)];
+    assert.equal(uses.length, periodicContext ? 2 : 0);
+    for (const [, target] of uses) assert.ok(html.includes(`id="${target}"`));
+    if (periodicContext) assert.match(html, /相邻周延续，不计入线圈数/);
+  }
+});
