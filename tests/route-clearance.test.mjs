@@ -79,7 +79,9 @@ test('terminal fanout preserves conductor order, so leads never cross each other
     const leads = [...l.leads].sort((a, b) => a.points[0].x - b.points[0].x);
     for (let i = 1; i < leads.length; i++) {
       assert.ok(leads[i].points[0].x - leads[i - 1].points[0].x >= 8 - eps);
-      assert.ok(leads[i].points[2].x - leads[i - 1].points[2].x >= 74 - eps);
+      assert.ok(leads[i].points[2].x - leads[i - 1].points[2].x >= 32 - eps);
+      if (leads[i].labelRow === leads[i - 1].labelRow)
+        assert.ok(leads[i].points[2].x - leads[i - 1].points[2].x >= 84 - eps);
     }
     for (const lead of leads) {
       assert.equal(lead.points[1].y, l.fanoutTop);

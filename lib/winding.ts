@@ -7,6 +7,16 @@ export const COLORS: Record<Phase, string> = {
   V: '#148846',
   W: '#245bd8',
 };
+// Saturated branch colours remain readable on white; labels carry the exact
+// path number when a winding has more paths than visually distinct colours.
+const BRANCH_COLORS: Record<Phase, string[]> = {
+  U: ['#d71930', '#bb168e', '#803db5', '#b43d16', '#a30d50', '#653b91'],
+  V: ['#087f46', '#007d83', '#607914', '#006958', '#387131', '#396879'],
+  W: ['#195bd2', '#5142bf', '#007a9c', '#27428b', '#7340a8', '#12677e'],
+};
+export function branchColor(phase: Phase, path: number): string {
+  return BRANCH_COLORS[phase][(path - 1) % BRANCH_COLORS[phase].length];
+}
 export type Params = {
   slots: number;
   poles: number;
@@ -113,6 +123,19 @@ export const PRESETS = [
     name: '18 槽参考方案',
     note: '18 槽 · 4 极 · 双层节距 4',
     params: { ...DEFAULTS, slots: 18, poles: 4, layers: 2, paths: 1, pitch: 4 },
+  },
+  {
+    name: '54 槽三路参考',
+    note: '54 槽 · 24 极 · 3 路 · 50 匝',
+    params: {
+      ...DEFAULTS,
+      slots: 54,
+      poles: 24,
+      layers: 2,
+      paths: 3,
+      pitch: 2,
+      turns: 50,
+    },
   },
 ];
 const TAU = Math.PI * 2;
@@ -432,6 +455,23 @@ function vectorGroups(coils: Coil[], p: Params): Coil[][] {
   return [...groups.values()];
 }
 function connect(coils: Coil[], p: Params): number[] {
+  const circularOrder = (a: Coil, b: Coil) =>
+    mod(a.go - 1 + a.span / 2, p.slots) - mod(b.go - 1 + b.span / 2, p.slots) ||
+    Math.abs(b.span) - Math.abs(a.span) ||
+    a.goLayer - b.goLayer ||
+    a.go - b.go;
+  const jump = (a: Coil, b: Coil) => {
+    const span = Math.abs(a.back - b.go);
+    return Math.min(span, p.slots - span);
+  };
+  const orderBranch = (cs: Coil[]) => [...cs].sort(circularOrder);
+  const routeCost = (cs: Coil[]) => {
+    const spans = Array.from({ length: p.paths }, (_, i) => {
+      const ordered = orderBranch(cs.filter((c) => c.path === i + 1));
+      return ordered.slice(1).map((c, j) => jump(ordered[j], c));
+    }).flat();
+    return [Math.max(0, ...spans), spans.reduce((a, b) => a + b, 0)];
+  };
   const allGroups = PHASES.map((ph) =>
     vectorGroups(
       coils.filter((c) => c.phase === ph),
@@ -444,30 +484,46 @@ function connect(coils: Coil[], p: Params): number[] {
     (_, i) => i + 1,
   ).filter((a) => multiplicity % a === 0);
   if (!possible.includes(p.paths)) return possible;
-  for (const groups of allGroups)
+  for (const groups of allGroups) {
     for (const g of groups)
-      g.sort((a, b) => a.goLayer - b.goLayer || a.go - b.go).forEach((c, i) => {
-        c.path = (i % p.paths) + 1;
+      // Split each equal-EMF / equal-span class into consecutive circular
+      // blocks. Round-robin allocation scatters each branch around the whole
+      // stator and creates unnecessary long crossovers. Every path still gets
+      // the same inventory; electrical audits remain authoritative.
+      g.sort(circularOrder).forEach((c, i) => {
+        c.path = Math.floor(i / (g.length / p.paths)) + 1;
       });
+    const cs = groups.flat(),
+      spatial = cs.map((c) => c.path),
+      compactCost = routeCost(cs);
+    // Some nested/short-coil arrangements favour an interleaved inventory.
+    // Compare electrically equivalent candidates, prioritising the longest
+    // crossover and then their total slot distance. This is a bounded drawing
+    // heuristic, not a copper-length or manufacturing optimum.
+    for (const g of groups)
+      [...g]
+        .sort((a, b) => a.goLayer - b.goLayer || a.go - b.go)
+        .forEach((c, i) => {
+          c.path = (i % p.paths) + 1;
+        });
+    const interleavedCost = routeCost(cs);
+    if (
+      compactCost[0] < interleavedCost[0] ||
+      (compactCost[0] === interleavedCost[0] &&
+        compactCost[1] <= interleavedCost[1])
+    )
+      cs.forEach((c, i) => {
+        c.path = spatial[i];
+      });
+  }
   for (const ph of PHASES)
     for (let path = 1; path <= p.paths; path++) {
-      coils
-        .filter((c) => c.phase === ph && c.path === path)
-        .sort(
-          (a, b) =>
-            // Follow coil centres around the stator, including reversed coils.
-            // Grouping all upper-layer go sides first makes long return jumps
-            // and moves the phase tail into the middle of the developed winding.
-            mod(a.go - 1 + a.span / 2, p.slots) -
-              mod(b.go - 1 + b.span / 2, p.slots) ||
-            Math.abs(b.span) - Math.abs(a.span) ||
-            a.goLayer - b.goLayer ||
-            a.go - b.go,
-        )
-        .forEach((c, i) => {
-          c.order = i + 1;
-          c.id = `${ph}${path}-${i + 1}`;
-        });
+      orderBranch(
+        coils.filter((c) => c.phase === ph && c.path === path),
+      ).forEach((c, i) => {
+        c.order = i + 1;
+        c.id = `${ph}${path}-${i + 1}`;
+      });
     }
   return possible;
 }

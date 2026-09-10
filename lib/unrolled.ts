@@ -27,6 +27,7 @@ export type LeadRoute = {
   caption: string;
   detail: string;
   points: Point[];
+  labelRow: number;
 };
 export type UnrolledLayout = {
   width: number;
@@ -97,7 +98,7 @@ export function unrolledLayout(
   const { slots, layers } = design.params;
   const shown = new Set(visible.map((c) => c.id));
   const rawLinks: { from: Coil; to: Coil; node: string }[] = [];
-  const rawLeads: Omit<LeadRoute, 'points'>[] = [];
+  const rawLeads: Omit<LeadRoute, 'points' | 'labelRow'>[] = [];
   for (const branch of netlist(design).branches) {
     for (let i = 0; i < branch.coils.length; i++) {
       const c = branch.coils[i];
@@ -133,7 +134,7 @@ export function unrolledLayout(
   const width = Math.max(
     1200,
     slots * Math.max(32, layers * 8 + 12) + left * 2,
-    rawLeads.length * 74 + left * 2,
+    rawLeads.length * 32 + left * 2,
   );
   const right = width - left,
     period = right - left,
@@ -227,7 +228,7 @@ export function unrolledLayout(
     positions[i] = Math.max(
       lead.anchor,
       left + terminalMargin,
-      i ? positions[i - 1] + 74 : 0,
+      i ? positions[i - 1] + 32 : 0,
     );
   });
   for (let i = positions.length - 1; i >= 0; i--)
@@ -235,11 +236,23 @@ export function unrolledLayout(
       positions[i],
       i === positions.length - 1
         ? right - terminalMargin
-        : positions[i + 1] - 74,
+        : positions[i + 1] - 32,
     );
+  // Keep the electrical terminals close to their actual slot. Label width is
+  // handled below the symbols, instead of pushing nearby leads sideways.
+  const labelRows: number[] = [];
   const leads = leadAnchors.map(({ anchor, ...lead }, i): LeadRoute => {
+    const half = Math.max(
+      38,
+      lead.caption.length * 3.6 + 8,
+      lead.detail.length * 3.6 + 8,
+    );
+    let labelRow = labelRows.findIndex((end) => positions[i] - half > end + 8);
+    if (labelRow < 0) labelRow = labelRows.length;
+    labelRows[labelRow] = positions[i] + half;
     return {
       ...lead,
+      labelRow,
       points: [
         { x: anchor, y: bottom },
         { x: anchor, y: fanoutTop },
@@ -307,7 +320,7 @@ export function unrolledLayout(
     fanoutTop,
     fanoutBottom,
     width,
-    height: terminalY + 100,
+    height: terminalY + 100 + Math.max(0, labelRows.length - 1) * 38,
     left,
     right,
     step,

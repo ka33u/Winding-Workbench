@@ -27,7 +27,13 @@ import {
   PaginationPrevious,
   PaginationNext,
 } from '@/components/ui/pagination';
-import { PHASES, COLORS, type Phase, type Winding } from '@/lib/winding';
+import {
+  PHASES,
+  COLORS,
+  branchColor,
+  type Phase,
+  type Winding,
+} from '@/lib/winding';
 import { coilCSV, download, encodeProject } from '@/lib/project';
 import { Diagram, VIEWS, visibleCoils, type View } from './Diagram';
 import { Choice } from './Choice';
@@ -333,7 +339,11 @@ export function WorkspacePanel({
         {selectedCoil && (
           <div className="coil-inspector">
             <Route size={17} />
-            <strong style={{ color: COLORS[selectedCoil.phase] }}>
+            <strong
+              style={{
+                color: branchColor(selectedCoil.phase, selectedCoil.path),
+              }}
+            >
               {selectedCoil.id}
             </strong>
             <span>
@@ -422,7 +432,9 @@ export function WorkspacePanel({
                 data-state={selectedCoil?.id === c.id ? 'selected' : undefined}
               >
                 <TableCell>
-                  <span style={{ color: COLORS[c.phase] }}>{c.id}</span>
+                  <span style={{ color: branchColor(c.phase, c.path) }}>
+                    {c.id}
+                  </span>
                 </TableCell>
                 <TableCell>
                   {c.phase} / {c.path}路

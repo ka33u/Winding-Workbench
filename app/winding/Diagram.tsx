@@ -7,6 +7,7 @@ import { unrolledLayout } from '@/lib/unrolled';
 import { LinearWinding } from './LinearWinding';
 import {
   COLORS,
+  branchColor,
   PHASES,
   coilVector,
   netlist,
@@ -208,15 +209,20 @@ export function Diagram({
             <g key={b.phase + b.path}>
               <path
                 d={`M${left},${y} H${right}`}
-                stroke={COLORS[b.phase]}
+                stroke={branchColor(b.phase, b.path)}
                 strokeWidth={1.8}
               />
-              <circle cx={left} cy={y} r={3} fill={COLORS[b.phase]} />
+              <circle
+                cx={left}
+                cy={y}
+                r={3}
+                fill={branchColor(b.phase, b.path)}
+              />
               <circle cx={right} cy={y} r={3} fill="#52677c" />
               <text
                 x={left - 25}
                 y={y + 5}
-                fill={COLORS[b.phase]}
+                fill={branchColor(b.phase, b.path)}
                 fontSize={12}
                 textAnchor="end"
               >
@@ -235,11 +241,15 @@ export function Diagram({
                       height={51}
                       fill="#fcfdff"
                       rx={5}
-                      stroke={selected === c.id ? COLORS[c.phase] : 'none'}
+                      stroke={
+                        selected === c.id
+                          ? branchColor(c.phase, c.path)
+                          : 'none'
+                      }
                     />
                     <path
                       d={d}
-                      stroke={COLORS[c.phase]}
+                      stroke={branchColor(c.phase, c.path)}
                       strokeWidth={stroke(c)}
                       fill="none"
                     />
@@ -248,7 +258,7 @@ export function Diagram({
                       x={x}
                       y={y + 28}
                       textAnchor="middle"
-                      fill={COLORS[c.phase]}
+                      fill={branchColor(c.phase, c.path)}
                       fontSize={12}
                     >
                       {c.id}
@@ -347,18 +357,23 @@ export function Diagram({
               <path d={d} stroke="transparent" strokeWidth={10} fill="none" />
               <path
                 d={d}
-                stroke={COLORS[c.phase]}
+                stroke={branchColor(c.phase, c.path)}
                 strokeWidth={selected === c.id ? 3 : 1.3}
                 opacity={0.75}
                 fill="none"
               />
               {trace(c, d)}
-              <circle cx={a.x} cy={a.y} r={3} fill={COLORS[c.phase]} />
+              <circle
+                cx={a.x}
+                cy={a.y}
+                r={3}
+                fill={branchColor(c.phase, c.path)}
+              />
               <circle
                 cx={b.x}
                 cy={b.y}
                 r={3}
-                stroke={COLORS[c.phase]}
+                stroke={branchColor(c.phase, c.path)}
                 fill="white"
               />
             </g>
@@ -446,7 +461,7 @@ export function Diagram({
               <title>{label(c)}</title>
               <path
                 d={`M${cx},${cy} L${cx + (v.re / m) * r},${cy - (v.im / m) * r}`}
-                stroke={COLORS[c.phase]}
+                stroke={branchColor(c.phase, c.path)}
                 strokeWidth={selected === c.id ? 3 : 1}
                 opacity={selected === c.id ? 1 : 0.16}
               />

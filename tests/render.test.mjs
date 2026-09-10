@@ -4,7 +4,7 @@ import { build } from 'esbuild';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { renderToStaticMarkup } from 'react-dom/server';
 import React from 'react';
-import { generate, DEFAULTS, PRESETS } from '../lib/winding.ts';
+import { generate, DEFAULTS, PRESETS, branchColor } from '../lib/winding.ts';
 const result = await build({
   entryPoints: ['app/winding/Diagram.tsx'],
   bundle: true,
@@ -157,5 +157,51 @@ test('continuous development repeats only neighboring context and exports self-c
     assert.equal(uses.length, periodicContext ? 2 : 0);
     for (const [, target] of uses) assert.ok(html.includes(`id="${target}"`));
     if (periodicContext) assert.match(html, /相邻周延续，不计入线圈数/);
+    assert.ok(
+      html.indexOf('data-layer="terminal-captions"') >
+        html.lastIndexOf('<use '),
+      'terminal labels belong to the real period, so neighboring copies never show clipped or duplicate captions',
+    );
+  }
+});
+
+test('three reference branches keep distinct saturated colours, six terminals and fifteen true series links in SVG', () => {
+  const d = generate({
+    ...DEFAULTS,
+    slots: 54,
+    poles: 24,
+    pitch: 2,
+    paths: 3,
+    turns: 50,
+  }).design;
+  assert.equal(new Set([1, 2, 3].map((p) => branchColor('U', p))).size, 3);
+  for (const path of [0, 1, 2, 3]) {
+    const html = renderToStaticMarkup(
+      React.createElement(Diagram, {
+        design: d,
+        phase: 'U',
+        path,
+        view: 'linear',
+      }),
+    );
+    assert.equal(
+      (html.match(/data-coil-anchor=/g) || []).length,
+      path ? 6 : 18,
+    );
+    assert.equal(
+      (html.match(/data-series-from=/g) || []).length,
+      path ? 5 : 15,
+    );
+    assert.equal(
+      (html.match(/data-lead-kind="start"/g) || []).length,
+      path ? 1 : 3,
+    );
+    assert.equal(
+      (html.match(/data-lead-kind="end"/g) || []).length,
+      path ? 1 : 3,
+    );
+    assert.match(html, /data-layer="branch-legend"/);
+    for (const p of path ? [path] : [1, 2, 3])
+      assert.ok(html.includes(`stroke="${branchColor('U', p)}"`));
   }
 });

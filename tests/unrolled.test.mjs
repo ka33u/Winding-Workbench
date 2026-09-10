@@ -92,7 +92,17 @@ function check(d, cs = d.coils) {
   const terminals = layout.leads
     .map((l) => l.points.at(-1).x)
     .sort((a, b) => a - b);
-  assert.ok(terminals.slice(1).every((x, i) => x - terminals[i] >= 74 - 1e-6));
+  assert.ok(terminals.slice(1).every((x, i) => x - terminals[i] >= 32 - 1e-6));
+  for (const row of new Set(layout.leads.map((l) => l.labelRow))) {
+    const labels = layout.leads
+      .filter((l) => l.labelRow === row)
+      .map((l) => l.points.at(-1).x)
+      .sort((a, b) => a - b);
+    assert.ok(
+      labels.slice(1).every((x, i) => x - labels[i] >= 84 - 1e-6),
+      'terminal captions on the same row retain readable separation',
+    );
+  }
   return layout;
 }
 

@@ -1,16 +1,11 @@
 'use client';
 import { useId, type SVGProps } from 'react';
-import { COLORS, type Coil, type Winding } from '@/lib/winding';
+import { branchColor, type Coil, type Winding } from '@/lib/winding';
 import { polylinePath, type Point, type UnrolledLayout } from '@/lib/unrolled';
 import { bridgePath } from '@/lib/route-clearance';
 
 function color(c: Coil) {
-  const rgb = COLORS[c.phase]
-    .slice(1)
-    .match(/../g)!
-    .map((s) => parseInt(s, 16));
-  const tint = ((c.path - 1) % 3) * 0.16;
-  return `rgb(${rgb.map((n) => Math.round(n + (255 - n) * tint)).join(',')})`;
+  return branchColor(c.phase, c.path);
 }
 function Arrow({
   x,
@@ -53,6 +48,11 @@ export function LinearWinding({
   const { left, right, step, top, bottom, width, height } = layout;
   const instanceId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const periodId = `linear-period-${instanceId}`;
+  const branches = [
+    ...new Map(
+      layout.coils.map(({ coil }) => [`${coil.phase}:${coil.path}`, coil]),
+    ).values(),
+  ].sort((a, b) => a.phase.localeCompare(b.phase) || a.path - b.path);
   const fade = (...ids: string[]) =>
     selected && !ids.includes(selected) ? 0.13 : 1;
   const wire = (points: Point[], stroke: string, heavy = false) => (
@@ -60,7 +60,7 @@ export function LinearWinding({
       d={polylinePath(points)}
       fill="none"
       stroke={stroke}
-      strokeWidth={heavy ? 2.7 : 1.45}
+      strokeWidth={heavy ? 2.7 : 1.7}
       strokeLinejoin="round"
       strokeLinecap="round"
     />
@@ -77,8 +77,31 @@ export function LinearWinding({
         fill="#607086"
         fontSize={12}
       >
-        U 红 / V 绿 / W 蓝 · 同相浅色区分并联支路
+        U 红系 / V 绿系 / W 蓝系 · 颜色与路号对应支路
       </text>
+      <g data-layer="branch-legend" aria-label="支路颜色图例">
+        {branches.slice(0, 9).map((c, i) => (
+          <g
+            key={`${c.phase}:${c.path}`}
+            transform={`translate(${left - contextWidth + i * 108},49)`}
+          >
+            <path d="M0,0 H20" stroke={color(c)} strokeWidth={2} />
+            <text x={27} y={4} fill={color(c)} fontSize={12}>
+              {c.phase} / 第{c.path}路
+            </text>
+          </g>
+        ))}
+        {branches.length > 9 && (
+          <text
+            x={left - contextWidth + 9 * 108}
+            y={53}
+            fill="#607086"
+            fontSize={12}
+          >
+            共 {branches.length} 条 · 可筛选支路
+          </text>
+        )}
+      </g>
       {contextWidth > 0 && (
         <defs>
           {[-1, 1].map((side) => (
@@ -175,7 +198,7 @@ export function LinearWinding({
                     strokeWidth={
                       selected === link.from.id || selected === link.to.id
                         ? 2.7
-                        : 1.45
+                        : 1.7
                     }
                     opacity={fade(link.from.id, link.to.id)}
                   />
@@ -333,25 +356,6 @@ export function LinearWinding({
                       fill="white"
                     />
                   )}
-                  <text
-                    x={end.x}
-                    y={end.y + 37}
-                    textAnchor="middle"
-                    fill={stroke}
-                    fontSize={11}
-                    fontWeight={600}
-                  >
-                    {lead.caption}
-                  </text>
-                  <text
-                    x={end.x}
-                    y={end.y + 53}
-                    textAnchor="middle"
-                    fill="#6a7789"
-                    fontSize={10}
-                  >
-                    {lead.detail}
-                  </text>
                 </g>
               );
             })}
@@ -373,6 +377,39 @@ export function LinearWinding({
             />
           </g>
         ))}
+      {showConnections && (
+        <g data-layer="terminal-captions" pointerEvents="none">
+          {layout.leads.map((lead) => {
+            const end = lead.points.at(-1)!;
+            return (
+              <g
+                key={`${lead.coil.id}:${lead.side}`}
+                opacity={fade(lead.coil.id)}
+              >
+                <text
+                  x={end.x}
+                  y={end.y + 37 + lead.labelRow * 38}
+                  textAnchor="middle"
+                  fill={color(lead.coil)}
+                  fontSize={12}
+                  fontWeight={600}
+                >
+                  {lead.caption}
+                </text>
+                <text
+                  x={end.x}
+                  y={end.y + 53 + lead.labelRow * 38}
+                  textAnchor="middle"
+                  fill="#6a7789"
+                  fontSize={12}
+                >
+                  {lead.detail}
+                </text>
+              </g>
+            );
+          })}
+        </g>
+      )}
       <text
         x={left - contextWidth}
         y={(showConnections ? height : bottom + 62) - 21}
