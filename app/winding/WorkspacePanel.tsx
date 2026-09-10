@@ -76,6 +76,8 @@ export function WorkspacePanel({
     Math.max(0, Math.ceil(coils.length / 30) - 1),
   );
   const selectedCoil = coils.find((c) => c.id === selected);
+  const exportScope = `${phase}_${path ? `第${path}路` : '全部支路'}`;
+  const exportLabel = `${phase === 'all' ? '全部相' : phase + '相'} · ${path ? `第 ${path} 路` : '全部支路'}`;
   const coilSpans = useMemo(
     () =>
       Array.from(new Set(design.coils.map((c) => Math.abs(c.span)))).sort(
@@ -119,6 +121,10 @@ export function WorkspacePanel({
     }
     svg.removeAttribute('style');
     svg.setAttribute('role', 'img');
+    const title = `${design.params.slots}槽${design.params.poles}极 ${VIEWS.find((v) => v[0] === view)?.[1]} · ${exportLabel}`;
+    svg.setAttribute('aria-label', title);
+    const titleElement = svg.querySelector('title');
+    if (titleElement) titleElement.textContent = title;
     svg.querySelector('desc')?.remove();
     svg.setAttribute('width', svg.getAttribute('viewBox')!.split(' ')[2]);
     svg.setAttribute('height', svg.getAttribute('viewBox')!.split(' ')[3]);
@@ -133,10 +139,10 @@ export function WorkspacePanel({
     download(
       '<?xml version="1.0" encoding="UTF-8"?>\n' +
         new XMLSerializer().serializeToString(svg),
-      `绕组_${design.params.slots}槽${design.params.poles}极_${view}_${phase}.svg`,
+      `绕组_${design.params.slots}槽${design.params.poles}极_${view}_${exportScope}.svg`,
       'image/svg+xml;charset=utf-8',
     );
-    notify('已导出当前视图的 SVG 矢量图。');
+    notify(`已导出 ${exportLabel} 的 SVG 矢量图。`);
   }
   return (
     <>
@@ -383,10 +389,10 @@ export function WorkspacePanel({
               onClick={() => {
                 download(
                   coilCSV(design, phase, path),
-                  `线圈表_${design.params.slots}槽${design.params.poles}极_${phase}.csv`,
+                  `线圈表_${design.params.slots}槽${design.params.poles}极_${exportScope}.csv`,
                   'text/csv;charset=utf-8',
                 );
-                notify('已导出筛选后的线圈表和电气节点。');
+                notify(`已导出 ${exportLabel} 的线圈表和电气节点。`);
               }}
             >
               <Download size={14} />
