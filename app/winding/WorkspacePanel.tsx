@@ -93,6 +93,40 @@ export function WorkspacePanel({
     mq.addEventListener('change', stop);
     return () => mq.removeEventListener('change', stop);
   }, []);
+  useEffect(() => {
+    if (view !== 'linear') return;
+    const frame = requestAnimationFrame(() => {
+      const region =
+        area.current?.querySelector<HTMLElement>('.diagram-scroll');
+      if (!region) return;
+      if (!path) {
+        region.scrollLeft = 0;
+        return;
+      }
+      // Pan only the drawing, leaving page scroll and the user's zoom intact.
+      // Ignore periodic <use> copies: their anchors are not real coil entries.
+      const bounds = Array.from(
+        region.querySelectorAll('[data-coil-anchor]'),
+        (anchor) => anchor.getBoundingClientRect(),
+      );
+      if (!bounds.length) return;
+      const left = Math.min(...bounds.map((b) => b.left));
+      const right = Math.max(...bounds.map((b) => b.right));
+      const center =
+        right - left < region.clientWidth
+          ? (left + right) / 2
+          : left + region.clientWidth / 2 - 48;
+      region.scrollTo({
+        left:
+          region.scrollLeft +
+          center -
+          region.getBoundingClientRect().left -
+          region.clientWidth / 2,
+        behavior: 'auto',
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [area, coils, path, view]);
   function pick(id: string) {
     setSelected(id === selected ? null : id);
     const n = coils.findIndex((c) => c.id === id);

@@ -137,6 +137,18 @@ export const PRESETS = [
       turns: 50,
     },
   },
+  {
+    name: '72 槽齿绕参考',
+    note: '72 槽 · 84 极 · 6 路 · 50 匝',
+    params: {
+      ...DEFAULTS,
+      slots: 72,
+      poles: 84,
+      paths: 6,
+      pitch: 1,
+      turns: 50,
+    },
+  },
 ];
 const TAU = Math.PI * 2;
 export const mod = (n: number, d: number) => ((n % d) + d) % d;
@@ -395,6 +407,19 @@ function symmetry(coils: Coil[], p: Params) {
 function makeLapCoils(p: Params): Coil[] | null {
   const step = (360 * gcd(p.slots, p.poles / 2)) / p.slots;
   const offsets = [step / 4, 0, step / 2, 15, 30 - step / 4];
+  if (p.layers === 2 && p.pitch === 1) {
+    // Anchor tooth-coil phase belts to the actual 1/L1 → 2/L2 EMF,
+    // including slot electrical angles above 180°. A fixed near-zero
+    // phase axis otherwise selects the neighbouring belt and moves one
+    // first-path coil across the stator cut. Keep the existing symmetry
+    // search as fallback; this sets a convention, not a better EMF factor.
+    const angle = (Math.PI * p.poles) / p.slots;
+    const firstAxis = degrees({
+      re: 1 - Math.cos(angle),
+      im: -Math.sin(angle),
+    });
+    offsets.unshift(firstAxis + step / 2);
+  }
   if (p.layers === 2) {
     for (const offset of offsets) {
       const cs: Coil[] = [];
@@ -790,7 +815,7 @@ export function generate(p: Params): Result {
         'warning',
       ),
     );
-  if (p.pitch > p.slots / p.poles)
+  if (p.pitch > p.slots / p.poles && !(p.pitch === 1 && p.poles > p.slots))
     issues.push(
       issue(
         'W_LONG_PITCH',

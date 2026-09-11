@@ -142,14 +142,20 @@ export function unrolledLayout(
   const gap = layers === 1 ? 0 : 8;
   const x = (slot: number, layer: number) =>
     left + (slot - 0.5) * step + (layer - (layers + 1) / 2) * gap;
-  const top = 98,
+  // One-slot tooth coils need enough end-turn height to distinguish the two
+  // narrow legs and place arrows. Distributed coils keep their shallow roof.
+  const toothCoils =
+    visible.length > 0 && visible.every((c) => Math.abs(c.span) === 1);
+  const top = toothCoils ? 172 : 98,
     bottom = top + 148;
   const coils = visible.map((coil): CoilRoute => {
     const a = x(coil.go, coil.goLayer),
       backX = x(coil.back, coil.backLayer);
     const delta = coil.span;
     const b = backX + ((coil.go + delta - coil.back) / slots) * period;
-    const rise = Math.min(42, Math.max(22, Math.abs(b - a) * 0.14));
+    const rise = toothCoils
+      ? 108
+      : Math.min(42, Math.max(22, Math.abs(b - a) * 0.14));
     const points = [
       { x: a, y: bottom },
       { x: a, y: top },
@@ -212,7 +218,7 @@ export function unrolledLayout(
   const wireBottom = bottom + 20 + Math.max(0, lanes.length - 1) * 16;
   const fanoutTop = wireBottom + 24;
   const fanoutBottom = fanoutTop + 36;
-  const terminalY = fanoutBottom + 36;
+  const terminalY = fanoutBottom + (toothCoils ? 112 : 36);
   const leadAnchors = rawLeads
     .map((lead) => ({
       ...lead,

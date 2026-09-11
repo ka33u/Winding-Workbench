@@ -112,7 +112,9 @@ export function Diagram({
   if (view === 'linear') {
     const contextSlots = periodicContext
       ? Math.min(
-          Math.ceil(Math.max(...cs.map((c) => Math.abs(c.span)), 1)),
+          Math.max(...cs.map((c) => Math.abs(c.span)), 1) === 1
+            ? 6
+            : Math.ceil(Math.max(...cs.map((c) => Math.abs(c.span)), 1)),
           Math.floor(slots / 2),
         )
       : 0;
