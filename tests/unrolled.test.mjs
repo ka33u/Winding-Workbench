@@ -29,6 +29,8 @@ function check(d, cs = d.coils) {
   const expected = netlist(d).branches;
   for (const route of layout.coils) {
     assertDirectedPath(route.pieces, route.go, route.back, layout);
+    assertDirectedPath(route.returnPieces, route.back, route.go, layout);
+    assert.ok(route.returnPieces.flat().every((p) => p.y >= layout.bottom));
     const vertical = route.pieces
       .flatMap((piece) => piece.slice(1).map((b, i) => [piece[i], b]))
       .filter(
@@ -75,6 +77,7 @@ function check(d, cs = d.coils) {
   }
   const points = [
     ...layout.coils.flatMap((r) => r.pieces.flat()),
+    ...layout.coils.flatMap((r) => r.returnPieces.flat()),
     ...layout.links.flatMap((r) => r.pieces.flat()),
     ...layout.leads.flatMap((r) => r.points),
   ];

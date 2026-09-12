@@ -9,6 +9,8 @@ export type Point = { x: number; y: number };
 export type CoilRoute = {
   coil: Coil;
   pieces: Point[][];
+  /** Rear end-turn illustration; never an extra edge in the electrical netlist. */
+  returnPieces: Point[][];
   go: Point;
   back: Point;
 };
@@ -44,6 +46,7 @@ export type UnrolledLayout = {
   leads: LeadRoute[];
   decorations: Record<string, RouteDecoration>;
   roofArrows: Record<string, RouteArrow[]>;
+  returnArrows: Record<string, RouteArrow[]>;
   fanoutTop: number;
   fanoutBottom: number;
 };
@@ -166,6 +169,18 @@ export function unrolledLayout(
     return {
       coil,
       pieces: periodicPieces(points, left, right),
+      returnPieces: periodicPieces(
+        [
+          { x: b, y: bottom },
+          {
+            x: (a + b) / 2,
+            y: bottom + Math.min(18, Math.max(9, Math.abs(b - a) * 0.1)),
+          },
+          { x: a, y: bottom },
+        ],
+        left,
+        right,
+      ),
       go: { x: a, y: bottom },
       back: { x: backX, y: bottom },
     };
@@ -206,7 +221,8 @@ export function unrolledLayout(
       lanes.push([]);
     }
     lanes[lane].push(...intervals);
-    const y = bottom + 20 + lane * 16;
+    // Reserve a shallow band for the rear coil loops above the series rails.
+    const y = bottom + 40 + lane * 16;
     const points = [
       { x: a, y: bottom },
       { x: a, y },
@@ -215,7 +231,7 @@ export function unrolledLayout(
     ];
     return { ...link, lane, pieces: periodicPieces(points, left, right) };
   });
-  const wireBottom = bottom + 20 + Math.max(0, lanes.length - 1) * 16;
+  const wireBottom = bottom + 40 + Math.max(0, lanes.length - 1) * 16;
   const fanoutTop = wireBottom + 24;
   const fanoutBottom = fanoutTop + 36;
   const terminalY = fanoutBottom + (toothCoils ? 112 : 36);
@@ -298,31 +314,51 @@ export function unrolledLayout(
     );
     return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
   };
-  const roofArrows: Record<string, RouteArrow[]> = Object.fromEntries(
-    coils.map((c) => [c.coil.id, []]),
-  );
-  for (const segment of roofSegments) {
-    const { a, b } = segment;
-    if (Math.hypot(b.x - a.x, b.y - a.y) < 30) continue;
-    for (const t of [0.35, 0.65, 0.5, 0.2, 0.8]) {
-      const point = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
-      if (point.x < left + 10 || point.x > right - 10) continue;
-      if (
-        roofSegments.some(
-          (s) => s !== segment && distance(point, s.a, s.b) < 10,
+  const placeArrows = (
+    segments: typeof roofSegments,
+    obstacles: typeof roofSegments = [],
+  ) => {
+    const arrows: Record<string, RouteArrow[]> = Object.fromEntries(
+      coils.map((c) => [c.coil.id, []]),
+    );
+    const blockers = [...segments, ...obstacles];
+    for (const segment of segments) {
+      const { a, b } = segment;
+      if (Math.hypot(b.x - a.x, b.y - a.y) < 30) continue;
+      for (const t of [0.35, 0.65, 0.5, 0.2, 0.8]) {
+        const point = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+        if (point.x < left + 10 || point.x > right - 10) continue;
+        if (
+          blockers.some((s) => s !== segment && distance(point, s.a, s.b) < 10)
         )
-      )
-        continue;
-      roofArrows[segment.id].push({
-        ...point,
-        angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
-      });
-      break;
+          continue;
+        arrows[segment.id].push({
+          ...point,
+          angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
+        });
+        break;
+      }
     }
-  }
+    return arrows;
+  };
+  const roofArrows = placeArrows(roofSegments);
+  const returnArrows = placeArrows(
+    coils.flatMap(({ coil, returnPieces }) =>
+      returnPieces.flatMap((p) =>
+        p.slice(1).map((b, i) => ({ id: coil.id, a: p[i], b })),
+      ),
+    ),
+    [
+      ...links.map((link) => ({ id: link.node, pieces: link.pieces })),
+      ...leads.map((lead) => ({ id: lead.node, pieces: [lead.points] })),
+    ].flatMap(({ id, pieces }) =>
+      pieces.flatMap((p) => p.slice(1).map((b, i) => ({ id, a: p[i], b }))),
+    ),
+  );
   return {
     decorations,
     roofArrows,
+    returnArrows,
     fanoutTop,
     fanoutBottom,
     width,

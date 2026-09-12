@@ -27,6 +27,7 @@ export type DiagramProps = {
   zoom?: number;
   animate?: boolean;
   showConnections?: boolean;
+  showCoilReturns?: boolean;
   showDirections?: boolean;
   periodicContext?: boolean;
 };
@@ -53,6 +54,7 @@ export function Diagram({
   zoom = 1,
   animate = false,
   showConnections = true,
+  showCoilReturns = true,
   showDirections = true,
   periodicContext = true,
 }: DiagramProps) {
@@ -130,6 +132,7 @@ export function Diagram({
         hit={hit}
         animate={animate}
         showConnections={showConnections}
+        showCoilReturns={showCoilReturns}
         showDirections={showDirections}
         contextWidth={contextWidth}
       />

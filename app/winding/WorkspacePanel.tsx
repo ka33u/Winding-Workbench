@@ -55,6 +55,7 @@ export function WorkspacePanel({
     [zoom, setZoom] = useState(1),
     [animate, setAnimate] = useState(false),
     [showConnections, setShowConnections] = useState(true),
+    [showCoilReturns, setShowCoilReturns] = useState(true),
     [showDirections, setShowDirections] = useState(true),
     [periodicContext, setPeriodicContext] = useState(true),
     [selected, setSelected] = useState<string | null>(null),
@@ -316,6 +317,7 @@ export function WorkspacePanel({
                   zoom={zoom}
                   animate={animate}
                   showConnections={showConnections}
+                  showCoilReturns={showCoilReturns}
                   showDirections={showDirections}
                   periodicContext={periodicContext}
                 />
@@ -334,6 +336,19 @@ export function WorkspacePanel({
                   aria-label="显示相邻周的跨界延续"
                 />
                 连续展开
+              </label>
+              <label
+                className="motion-switch"
+                htmlFor="show-coil-returns"
+                title="细线表示线圈后端回路，粗线表示跨接与引线；接线关系以电气接线图为准"
+              >
+                <Switch
+                  id="show-coil-returns"
+                  checked={showCoilReturns}
+                  onCheckedChange={setShowCoilReturns}
+                  aria-label="显示线圈下方回路线"
+                />
+                线圈回路线
               </label>
               <label
                 className="motion-switch"

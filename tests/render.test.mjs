@@ -122,8 +122,80 @@ test('direction and terminal symbols are painted after all base wires and crossi
   assert.ok(overlay > html.lastIndexOf('data-series-from='));
   assert.ok(overlay > html.lastIndexOf('data-lead-coil='));
   assert.ok(overlay > html.lastIndexOf('data-jump-route='));
+  assert.ok(overlay > html.lastIndexOf('data-coil-return='));
   assert.ok(html.indexOf('data-route-arrow=') > overlay);
   assert.ok(html.includes('跨接拱桥表示跨线不相连'));
+});
+
+test('rear coil loops toggle independently, retain phase/path selection and export their crossing mask', () => {
+  const d = generate(DEFAULTS).design;
+  const expected = d.coils.filter((c) => c.phase === 'U' && c.path === 1);
+  for (const showCoilReturns of [true, false])
+    for (const showConnections of [true, false])
+      for (const showDirections of [true, false]) {
+        const html = renderToStaticMarkup(
+          React.createElement(Diagram, {
+            design: d,
+            phase: 'U',
+            path: 1,
+            view: 'linear',
+            selected: expected[0].id,
+            showCoilReturns,
+            showConnections,
+            showDirections,
+          }),
+        );
+        assert.equal(
+          (html.match(/data-coil-return=/g) || []).length,
+          showCoilReturns ? expected.length : 0,
+        );
+        assert.equal(
+          (html.match(/data-series-from=/g) || []).length,
+          showConnections ? expected.length - 1 : 0,
+        );
+        assert.equal(
+          (html.match(/data-lead-coil=/g) || []).length,
+          showConnections ? 2 : 0,
+        );
+        assert.equal(
+          (html.match(/data-coil-anchor=/g) || []).length,
+          expected.length,
+        );
+        for (const c of d.coils)
+          assert.equal(
+            html.includes(`data-coil-return="${c.id}"`),
+            showCoilReturns && expected.includes(c),
+          );
+        if (!showDirections || !showCoilReturns)
+          assert.doesNotMatch(html, /data-return-arrow=/);
+        else assert.match(html, /data-return-arrow=/);
+        if (showCoilReturns) {
+          const loops = html.slice(
+            html.indexOf('data-layer="coil-returns"'),
+            html.indexOf('data-layer="direction-and-terminal-overlay"'),
+          );
+          assert.match(loops, /stroke-width="1"/);
+          assert.match(loops, /stroke-width="1.3"/);
+          assert.match(loops, /opacity="0.13"/);
+        }
+        const masks = [...html.matchAll(/mask="url\(#([^)]+)\)"/g)];
+        assert.equal(masks.length, showCoilReturns && showConnections ? 1 : 0);
+        for (const [, id] of masks)
+          assert.ok(
+            html.includes(`<mask id="${id}"`),
+            'standalone SVG contains its own clearance mask',
+          );
+        assert.equal(
+          html.includes('<mask '),
+          showCoilReturns && showConnections,
+        );
+      }
+  for (const view of ['circuit', 'radial', 'phasor']) {
+    const html = renderToStaticMarkup(
+      React.createElement(Diagram, { design: d, phase: 'U', view }),
+    );
+    assert.doesNotMatch(html, /data-coil-return=|data-return-arrow=/);
+  }
 });
 
 test('continuous development repeats only neighboring context and exports self-contained SVG references', () => {

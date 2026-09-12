@@ -183,3 +183,48 @@ test('every crossover direction arrow has clearance from all other wire segments
     'normal winding plans keep useful crossover direction arrows',
   );
 });
+
+test('rear loop arrows avoid other loops and electrical wires, with a separate band above the series rails', () => {
+  let count = 0;
+  for (const l of layouts()) {
+    const returns = l.coils.flatMap(({ coil, returnPieces }) =>
+      returnPieces.flatMap((p) =>
+        p.slice(1).map((b, i) => ({ id: coil.id, a: p[i], b })),
+      ),
+    );
+    const lowestReturn = Math.max(...returns.flatMap((s) => [s.a.y, s.b.y]));
+    const wires = scene(l);
+    for (const rail of wires.filter((s) => Math.abs(s.a.y - s.b.y) < eps))
+      assert.ok(
+        rail.a.y - lowestReturn >= 16,
+        'lower loops stay clear of the crossover arrow and bridge band',
+      );
+    for (const [id, arrows] of Object.entries(l.returnArrows))
+      for (const arrow of arrows) {
+        count++;
+        const angle = (arrow.angle * Math.PI) / 180;
+        assert.ok(
+          returns.some(
+            (s) =>
+              s.id === id &&
+              intersectsBox(s.a, s.b, arrow.x, arrow.y, eps, eps),
+          ),
+          'return arrow sits on its own rear end turn',
+        );
+        for (const s of [...returns.filter((s) => s.id !== id), ...wires])
+          assert.equal(
+            intersectsBox(
+              s.a,
+              s.b,
+              arrow.x - 2 * Math.cos(angle),
+              arrow.y - 2 * Math.sin(angle),
+              6,
+              5,
+            ),
+            false,
+            'thin return arrow retains its clear area',
+          );
+      }
+  }
+  assert.ok(count > 0);
+});

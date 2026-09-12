@@ -12,14 +12,15 @@ function Arrow({
   y,
   angle,
   stroke,
-}: Point & { angle: number; stroke: string }) {
+  thin = false,
+}: Point & { angle: number; stroke: string; thin?: boolean }) {
   return (
     <path
       d="M-4,3 L0,0 L-4,-3"
       transform={`translate(${x},${y}) rotate(${angle})`}
       fill="none"
       stroke={stroke}
-      strokeWidth={1.4}
+      strokeWidth={thin ? 1 : 1.4}
       strokeLinecap="round"
       strokeLinejoin="round"
       pointerEvents="none"
@@ -33,6 +34,7 @@ export function LinearWinding({
   hit,
   animate,
   showConnections = true,
+  showCoilReturns = true,
   showDirections = true,
   contextWidth = 0,
 }: {
@@ -42,12 +44,14 @@ export function LinearWinding({
   hit: (c: Coil) => SVGProps<SVGGElement>;
   animate: boolean;
   showConnections?: boolean;
+  showCoilReturns?: boolean;
   showDirections?: boolean;
   contextWidth?: number;
 }) {
   const { left, right, step, top, bottom, width, height } = layout;
   const instanceId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const periodId = `linear-period-${instanceId}`;
+  const returnMaskId = `${periodId}-return-clearance`;
   const branches = [
     ...new Map(
       layout.coils.map(({ coil }) => [`${coil.phase}:${coil.path}`, coil]),
@@ -116,6 +120,40 @@ export function LinearWinding({
           ))}
         </defs>
       )}
+      {showCoilReturns && showConnections && (
+        <defs>
+          <mask
+            id={returnMaskId}
+            maskUnits="userSpaceOnUse"
+            x={left}
+            y={bottom - 1}
+            width={right - left}
+            height={22}
+            style={{ maskType: 'luminance' }}
+          >
+            <rect
+              x={left}
+              y={bottom - 1}
+              width={right - left}
+              height={22}
+              fill="white"
+            />
+            <g fill="none" stroke="black" strokeWidth={5.5}>
+              {layout.links.flatMap((link) =>
+                link.pieces.map((points, i) => (
+                  <path key={`${link.node}:${i}`} d={polylinePath(points)} />
+                )),
+              )}
+              {layout.leads.map((lead) => (
+                <path
+                  key={`${lead.coil.id}:${lead.side}`}
+                  d={polylinePath(lead.points)}
+                />
+              ))}
+            </g>
+          </mask>
+        </defs>
+      )}
       <g id={periodId} data-layer="one-stator-period">
         {Array.from({ length: design.params.slots }, (_, i) => (
           <g key={i} data-slot={i + 1}>
@@ -137,6 +175,42 @@ export function LinearWinding({
               strokeDasharray="3 5"
             />
           ))}
+        {showCoilReturns && (
+          <g
+            data-layer="coil-returns"
+            aria-label="线圈后端回路示意（细线）"
+            pointerEvents="none"
+            mask={showConnections ? `url(#${returnMaskId})` : undefined}
+          >
+            {layout.coils.map(({ coil, returnPieces }) => (
+              <g
+                key={coil.id}
+                data-coil-return={coil.id}
+                opacity={fade(coil.id)}
+              >
+                <title>{`${coil.id} 后端回路示意 · ${coil.back}槽 L${coil.backLayer} → ${coil.go}槽 L${coil.goLayer}`}</title>
+                {returnPieces.map((points, i) => (
+                  <g key={i}>
+                    <path
+                      d={polylinePath(points)}
+                      fill="none"
+                      stroke="white"
+                      strokeWidth={3}
+                    />
+                    <path
+                      d={polylinePath(points)}
+                      fill="none"
+                      stroke={color(coil)}
+                      strokeWidth={selected === coil.id ? 1.3 : 1}
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                  </g>
+                ))}
+              </g>
+            ))}
+          </g>
+        )}
         {showConnections &&
           layout.links.map((link) => (
             <g
@@ -296,6 +370,17 @@ export function LinearWinding({
           </text>
         ))}
         <g data-layer="direction-and-terminal-overlay" pointerEvents="none">
+          {showCoilReturns &&
+            showDirections &&
+            layout.coils.map(({ coil }) => (
+              <g key={coil.id} opacity={fade(coil.id)}>
+                {layout.returnArrows[coil.id].map((arrow, i) => (
+                  <g key={i} data-return-arrow={coil.id}>
+                    <Arrow {...arrow} stroke={color(coil)} thin />
+                  </g>
+                ))}
+              </g>
+            ))}
           {showDirections &&
             layout.coils.map(({ coil, go, back }) => (
               <g key={coil.id} opacity={fade(coil.id)}>
@@ -416,6 +501,7 @@ export function LinearWinding({
         fill="#718093"
         fontSize={11}
       >
+        {showCoilReturns && '细线为线圈后端回路示意 · '}
         箭头为参考绕向 · 跨接拱桥表示跨线不相连 ·{' '}
         {contextWidth
           ? '两侧浅色为相邻周延续，不计入线圈数'
