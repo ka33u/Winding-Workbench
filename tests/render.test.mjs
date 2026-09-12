@@ -17,6 +17,59 @@ const result = await build({
 await mkdir('.test-output', { recursive: true });
 await writeFile('.test-output/diagram.mjs', result.outputFiles[0].text);
 const { Diagram } = await import('../.test-output/diagram.mjs');
+test('fit zoom uses the intrinsic SVG width, including enlargement with continuous development off', () => {
+  for (const params of [
+    PRESETS[5].params,
+    PRESETS[6].params,
+    PRESETS[7].params,
+  ]) {
+    const design = generate(params).design;
+    for (const periodicContext of [false, true]) {
+      const render = (zoom) =>
+        renderToStaticMarkup(
+          React.createElement(Diagram, {
+            design,
+            phase: 'U',
+            view: 'linear',
+            periodicContext,
+            zoom,
+          }),
+        );
+      const width = Number(render(1).match(/viewBox="[^ ]+ [^ ]+ ([^ ]+)/)[1]);
+      for (const viewport of [320, 900, 1700]) {
+        const html = render(viewport / width);
+        const style = html.match(/<svg[^>]*style="([^"]+)"/)[1];
+        const pixelWidth = Number(
+          style.match(/(?:^|;)width:([^;]+)px(?:;|$)/)?.[1],
+        );
+        assert.ok(Math.abs(pixelWidth - viewport) < 1e-6);
+        assert.doesNotMatch(style, /width:[^;]*%/);
+      }
+    }
+  }
+});
+
+test('crowded end-turn markers export a white underlay and respect the direction toggle', () => {
+  const design = generate(DEFAULTS).design;
+  for (const showDirections of [true, false]) {
+    const html = renderToStaticMarkup(
+      React.createElement(Diagram, {
+        design,
+        phase: 'all',
+        view: 'linear',
+        showDirections,
+      }),
+    );
+    if (showDirections)
+      assert.match(html, /data-arrow-isolated="true"><path[^>]*stroke="white"/);
+    else
+      assert.doesNotMatch(
+        html,
+        /data-arrow-isolated=|data-return-arrow=|data-roof-arrow=|data-route-arrow=/,
+      );
+  }
+});
+
 test('SVG serialization contains correct coil targets for every view and phase filter', () => {
   for (const preset of PRESETS) {
     const r = generate(preset.params);

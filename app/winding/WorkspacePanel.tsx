@@ -53,6 +53,7 @@ export function WorkspacePanel({
   const [view, setView] = useState<View>('linear'),
     [path, setPath] = useState(0),
     [zoom, setZoom] = useState(1),
+    [fitToWidth, setFitToWidth] = useState(false),
     [animate, setAnimate] = useState(false),
     [showConnections, setShowConnections] = useState(true),
     [showCoilReturns, setShowCoilReturns] = useState(true),
@@ -86,6 +87,25 @@ export function WorkspacePanel({
       ),
     [design],
   );
+  useEffect(() => {
+    if (!fitToWidth || view !== 'linear') return;
+    const region = area.current?.querySelector<HTMLElement>('.diagram-scroll');
+    const svg = region?.querySelector<SVGSVGElement>(
+      'svg[data-export-diagram]',
+    );
+    if (!region || !svg) return;
+    const fit = () => {
+      const intrinsicWidth = svg.viewBox.baseVal.width;
+      if (region.clientWidth > 0 && intrinsicWidth > 0) {
+        setZoom(region.clientWidth / intrinsicWidth);
+        region.scrollLeft = 0;
+      }
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(region);
+    return () => observer.disconnect();
+  }, [area, fitToWidth, view, design, phase, path, periodicContext]);
   useEffect(() => {
     const mq = matchMedia('(prefers-reduced-motion: reduce)');
     const stop = () => {
@@ -221,6 +241,7 @@ export function WorkspacePanel({
           value={view}
           onValueChange={(v) => {
             setView(v as View);
+            setFitToWidth(false);
             setZoom(1);
           }}
         >
@@ -258,21 +279,23 @@ export function WorkspacePanel({
                     className="icon-button"
                     aria-label="线路图适应窗口宽度"
                     title="适应窗口宽度"
+                    aria-pressed={fitToWidth}
                     onClick={() => {
+                      setFitToWidth(true);
                       const svg = area.current?.querySelector(
                         'svg[data-export-diagram]',
                       ) as SVGSVGElement | null;
-                      if (svg && area.current)
-                        setZoom(
-                          Math.min(
-                            2.5,
-                            Math.max(
-                              0.02,
-                              area.current.clientWidth /
-                                svg.viewBox.baseVal.width,
-                            ),
-                          ),
-                        );
+                      const region =
+                        svg?.closest<HTMLElement>('.diagram-scroll');
+                      if (
+                        svg &&
+                        region &&
+                        region.clientWidth > 0 &&
+                        svg.viewBox.baseVal.width > 0
+                      ) {
+                        setZoom(region.clientWidth / svg.viewBox.baseVal.width);
+                        region.scrollLeft = 0;
+                      }
                     }}
                   >
                     <ScanLine size={14} />
@@ -281,7 +304,10 @@ export function WorkspacePanel({
                 <button
                   aria-label="缩小"
                   className="icon-button"
-                  onClick={() => setZoom((z) => Math.max(0.1, z - 0.25))}
+                  onClick={() => {
+                    setFitToWidth(false);
+                    setZoom((z) => Math.max(0.1, z - 0.25));
+                  }}
                   disabled={zoom <= 0.1}
                 >
                   <Minus size={14} />
@@ -289,14 +315,20 @@ export function WorkspacePanel({
                 <button
                   className="zoom-label"
                   aria-label="恢复百分之百缩放"
-                  onClick={() => setZoom(1)}
+                  onClick={() => {
+                    setFitToWidth(false);
+                    setZoom(1);
+                  }}
                 >
                   {Math.round(zoom * 100)}%
                 </button>
                 <button
                   aria-label="放大"
                   className="icon-button"
-                  onClick={() => setZoom((z) => Math.min(2.5, z + 0.25))}
+                  onClick={() => {
+                    setFitToWidth(false);
+                    setZoom((z) => Math.min(2.5, z + 0.25));
+                  }}
                   disabled={zoom >= 2.5}
                 >
                   <Plus size={14} />

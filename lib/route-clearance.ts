@@ -1,6 +1,10 @@
 import type { Point } from './unrolled.ts';
 
-export type RouteArrow = Point & { angle: number };
+export type RouteArrow = Point & {
+  angle: number;
+  scale?: number;
+  isolated?: boolean;
+};
 export type Bridge = {
   x1: number;
   x2: number;

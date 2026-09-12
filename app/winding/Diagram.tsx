@@ -539,7 +539,7 @@ export function Diagram({
         data-export-diagram="true"
         viewBox={`${originX} 0 ${width} ${height}`}
         style={{
-          width: `${zoom * 100}%`,
+          width: view === 'linear' ? width * zoom : `${zoom * 100}%`,
           minWidth:
             (view === 'linear'
               ? width

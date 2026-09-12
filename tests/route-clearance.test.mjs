@@ -211,19 +211,39 @@ test('rear loop arrows avoid other loops and electrical wires, with a separate b
           ),
           'return arrow sits on its own rear end turn',
         );
-        for (const s of [...returns.filter((s) => s.id !== id), ...wires])
+        const scale = arrow.scale ?? 1;
+        const center = {
+          x: arrow.x - 2 * scale * Math.cos(angle),
+          y: arrow.y - 2 * scale * Math.sin(angle),
+        };
+        if (!arrow.isolated) {
+          for (const s of [...returns.filter((s) => s.id !== id), ...wires]) {
+            const dx = s.b.x - s.a.x,
+              dy = s.b.y - s.a.y;
+            const t = Math.max(
+              0,
+              Math.min(
+                1,
+                ((center.x - s.a.x) * dx + (center.y - s.a.y) * dy) /
+                  (dx * dx + dy * dy || 1),
+              ),
+            );
+            const gap = Math.hypot(
+              center.x - s.a.x - t * dx,
+              center.y - s.a.y - t * dy,
+            );
+            assert.ok(
+              gap >= (Math.sqrt(13) + 0.5) * scale + 0.85 + 0.2,
+              'the whole scaled arrow glyph clears neighboring conductor strokes',
+            );
+          }
+        } else {
           assert.equal(
-            intersectsBox(
-              s.a,
-              s.b,
-              arrow.x - 2 * Math.cos(angle),
-              arrow.y - 2 * Math.sin(angle),
-              6,
-              5,
-            ),
-            false,
-            'thin return arrow retains its clear area',
+            scale,
+            0.75,
+            'crowded end turns use a compact marker with an explicit underlay',
           );
+        }
       }
   }
   assert.ok(count > 0);

@@ -13,18 +13,40 @@ function Arrow({
   angle,
   stroke,
   thin = false,
-}: Point & { angle: number; stroke: string; thin?: boolean }) {
+  scale = 1,
+  isolated = false,
+}: Point & {
+  angle: number;
+  stroke: string;
+  thin?: boolean;
+  scale?: number;
+  isolated?: boolean;
+}) {
   return (
-    <path
-      d="M-4,3 L0,0 L-4,-3"
-      transform={`translate(${x},${y}) rotate(${angle})`}
-      fill="none"
-      stroke={stroke}
-      strokeWidth={thin ? 1 : 1.4}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      pointerEvents="none"
-    />
+    <g
+      transform={`translate(${x},${y}) rotate(${angle}) scale(${scale})`}
+      data-arrow-isolated={isolated || undefined}
+    >
+      {isolated && (
+        <path
+          d="M-4,3 L0,0 L-4,-3"
+          fill="none"
+          stroke="white"
+          strokeWidth={4.4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+      <path
+        d="M-4,3 L0,0 L-4,-3"
+        fill="none"
+        stroke={stroke}
+        strokeWidth={thin ? 1 : 1.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        pointerEvents="none"
+      />
+    </g>
   );
 }
 export function LinearWinding({

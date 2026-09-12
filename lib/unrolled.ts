@@ -1,4 +1,5 @@
 import { netlist, type Coil, type Winding } from './winding.ts';
+import { endTurnArrows } from './end-turn-arrows.ts';
 import {
   decorateRoutes,
   type RouteDecoration,
@@ -302,47 +303,8 @@ export function unrolledLayout(
       ),
     )
     .filter(({ a, b }) => a.y <= top && b.y <= top);
-  const distance = (p: Point, a: Point, b: Point) => {
-    const dx = b.x - a.x,
-      dy = b.y - a.y;
-    const t = Math.max(
-      0,
-      Math.min(
-        1,
-        ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1),
-      ),
-    );
-    return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
-  };
-  const placeArrows = (
-    segments: typeof roofSegments,
-    obstacles: typeof roofSegments = [],
-  ) => {
-    const arrows: Record<string, RouteArrow[]> = Object.fromEntries(
-      coils.map((c) => [c.coil.id, []]),
-    );
-    const blockers = [...segments, ...obstacles];
-    for (const segment of segments) {
-      const { a, b } = segment;
-      if (Math.hypot(b.x - a.x, b.y - a.y) < 30) continue;
-      for (const t of [0.35, 0.65, 0.5, 0.2, 0.8]) {
-        const point = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
-        if (point.x < left + 10 || point.x > right - 10) continue;
-        if (
-          blockers.some((s) => s !== segment && distance(point, s.a, s.b) < 10)
-        )
-          continue;
-        arrows[segment.id].push({
-          ...point,
-          angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
-        });
-        break;
-      }
-    }
-    return arrows;
-  };
-  const roofArrows = placeArrows(roofSegments);
-  const returnArrows = placeArrows(
+  const roofArrows = endTurnArrows(roofSegments, [], left, right);
+  const returnArrows = endTurnArrows(
     coils.flatMap(({ coil, returnPieces }) =>
       returnPieces.flatMap((p) =>
         p.slice(1).map((b, i) => ({ id: coil.id, a: p[i], b })),
@@ -354,6 +316,8 @@ export function unrolledLayout(
     ].flatMap(({ id, pieces }) =>
       pieces.flatMap((p) => p.slice(1).map((b, i) => ({ id, a: p[i], b }))),
     ),
+    left,
+    right,
   );
   return {
     decorations,
