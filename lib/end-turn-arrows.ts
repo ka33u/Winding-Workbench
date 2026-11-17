@@ -22,6 +22,7 @@ export function endTurnArrows(
   obstacles: EndTurnSegment[],
   left: number,
   right: number,
+  horizontalOnly = false,
 ): Record<string, RouteArrow[]> {
   const result: Record<string, RouteArrow[]> = Object.fromEntries(
     segments.map((s) => [s.id, []]),
@@ -61,6 +62,9 @@ export function endTurnArrows(
   };
   for (const segment of segments) {
     const { a, b } = segment;
+    // Concentric turns have long straight crowns. Keep the bevels and stems
+    // in the obstacle index, but do not clutter them with repeated arrows.
+    if (horizontalOnly && Math.abs(b.y - a.y) > 1e-6) continue;
     const length = Math.hypot(b.x - a.x, b.y - a.y);
     if (length < 10) continue;
     const ux = (b.x - a.x) / length,

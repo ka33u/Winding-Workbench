@@ -400,7 +400,13 @@ export function unrolledLayout(
       ),
     )
     .filter(({ a, b }) => a.y <= top && b.y <= top);
-  const roofArrows = endTurnArrows(roofSegments, [], left, right);
+  const roofArrows = endTurnArrows(
+    roofSegments,
+    [],
+    left,
+    right,
+    windingType === 'concentric',
+  );
   const returnArrows = endTurnArrows(
     coils.flatMap(({ coil, returnPieces }) =>
       returnPieces.flatMap((p) =>
@@ -415,6 +421,7 @@ export function unrolledLayout(
     ),
     left,
     right,
+    windingType === 'concentric',
   );
   return {
     decorations,

@@ -18,6 +18,59 @@ const result = await build({
 await mkdir('.test-output', { recursive: true });
 await writeFile('.test-output/diagram.mjs', result.outputFiles[0].text);
 const { Diagram } = await import('../.test-output/diagram.mjs');
+test('selected wrapping coils retain rear hit targets, both continuation pairs and an unobscured trace without duplicate keyboard stops', () => {
+  for (const params of [
+    {
+      ...DEFAULTS,
+      slots: 54,
+      poles: 8,
+      paths: 2,
+      pitch: 8,
+      windingType: 'concentric',
+    },
+    PRESETS[8].params,
+  ]) {
+    const design = generate(params).design;
+    const coil = design.coils.find(
+      (c) => c.go + c.span < 1 || c.go + c.span > params.slots,
+    );
+    assert.ok(coil, 'fixture includes a coil across the stator cut');
+    for (const showCoilReturns of [true, false]) {
+      const html = renderToStaticMarkup(
+        React.createElement(Diagram, {
+          design,
+          phase: 'all',
+          selected: coil.id,
+          periodicContext: false,
+          showCoilReturns,
+          animate: true,
+        }),
+      );
+      assert.equal(
+        (html.match(/data-continuation-coil=/g) || []).length,
+        showCoilReturns ? 4 : 2,
+      );
+      assert.equal(html.includes('data-return-hit='), showCoilReturns);
+      assert.equal(
+        (html.match(/data-coil-id=/g) || []).length,
+        design.coils.length,
+      );
+      assert.equal(
+        (html.match(/<g tabindex="0" role="button"/g) || []).length,
+        1,
+      );
+      const overlay = html.indexOf('data-layer="selected-coil-overlay"');
+      assert.ok(
+        overlay > html.lastIndexOf('class="coil-hit"'),
+        'selected winding is painted above crossing coils',
+      );
+      assert.ok(
+        html.indexOf('class="trace-line"', overlay) > overlay,
+        'selected trace is painted above the selected outline',
+      );
+    }
+  }
+});
 test('type-specific deep rear turns remain inside the SVG and clearance mask with connections hidden or visible', () => {
   for (const params of [
     PRESETS[4].params,

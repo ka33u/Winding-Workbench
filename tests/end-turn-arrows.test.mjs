@@ -38,6 +38,18 @@ test('short, long and crowded end turns retain correctly directed arrows for eve
             arrows.length > 0,
             `${params.slots}/${params.poles}/${phase}/${coil.id}: missing ${kind} arrows`,
           );
+          if (params.windingType === 'concentric') {
+            assert.ok(
+              arrows.length <= 2,
+              'no repeated arrows on concentric bevels or stems',
+            );
+            assert.ok(
+              arrows.every(
+                (a) => Math.abs(Math.sin((a.angle * Math.PI) / 180)) < 1e-7,
+              ),
+              'concentric arrows stay on the straight crown',
+            );
+          }
           for (const arrow of arrows) {
             const angle = (arrow.angle * Math.PI) / 180,
               scale = arrow.scale ?? 1;

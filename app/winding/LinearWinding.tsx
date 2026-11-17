@@ -74,8 +74,11 @@ export function LinearWinding({
   const instanceId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const periodId = `linear-period-${instanceId}`;
   const returnMaskId = `${periodId}-return-clearance`;
-  const selectedGroup = layout.coils.find(({ coil }) => coil.id === selected)
-    ?.coil.group;
+  const selectedRoute = layout.coils.find(({ coil }) => coil.id === selected);
+  const returnRoutes = selectedRoute
+    ? [...layout.coils.filter((r) => r !== selectedRoute), selectedRoute]
+    : layout.coils;
+  const selectedGroup = selectedRoute?.coil.group;
   const related = new Set(
     selectedGroup
       ? layout.coils
@@ -221,7 +224,7 @@ export function LinearWinding({
             pointerEvents="none"
             mask={showConnections ? `url(#${returnMaskId})` : undefined}
           >
-            {layout.coils.map(({ coil, returnPieces }) => (
+            {returnRoutes.map(({ coil, returnPieces }) => (
               <g
                 key={coil.id}
                 data-coil-return={coil.id}
@@ -320,7 +323,7 @@ export function LinearWinding({
             )}
           </g>
         )}
-        {layout.coils.map(({ coil, pieces, go, back }) => (
+        {layout.coils.map(({ coil, pieces, returnPieces, go, back }) => (
           <g
             key={coil.id}
             {...hit(coil)}
@@ -328,6 +331,18 @@ export function LinearWinding({
             opacity={fade(coil.id)}
           >
             <title>{`${coil.id}：${coil.go}槽 L${coil.goLayer} → ${coil.back}槽 L${coil.backLayer}，${coil.turns}匝${coil.group ? `，同心组 ${coil.group}，节距 ${Math.abs(coil.span)}` : ''}`}</title>
+            {showCoilReturns &&
+              returnPieces.map((points, i) => (
+                <path
+                  key={`return-hit-${i}`}
+                  data-return-hit={coil.id}
+                  d={polylinePath(points)}
+                  stroke="transparent"
+                  strokeWidth={8}
+                  fill="none"
+                  pointerEvents="stroke"
+                />
+              ))}
             <rect
               data-coil-anchor={coil.id}
               x={go.x - 4}
@@ -351,7 +366,7 @@ export function LinearWinding({
                   fill="none"
                 />
                 {wire(points, color(coil), selected === coil.id)}
-                {animate && (!selected || selected === coil.id) && (
+                {animate && !selected && (
                   <path
                     d={polylinePath(points)}
                     fill="none"
@@ -362,33 +377,6 @@ export function LinearWinding({
                     pointerEvents="none"
                   />
                 )}
-                {!contextWidth &&
-                  selected === coil.id &&
-                  points
-                    .filter(
-                      (p) =>
-                        Math.abs(p.x - left) < 0.01 ||
-                        Math.abs(p.x - right) < 0.01,
-                    )
-                    .map((p, j) => (
-                      <g key={j} pointerEvents="none">
-                        <circle cx={p.x} cy={p.y} r={3} fill={color(coil)} />
-                        <text
-                          x={Math.abs(p.x - left) < 0.01 ? left - 7 : right + 7}
-                          y={p.y + 4}
-                          textAnchor={
-                            Math.abs(p.x - left) < 0.01 ? 'end' : 'start'
-                          }
-                          fontSize={10}
-                          fill={color(coil)}
-                          paintOrder="stroke"
-                          stroke="white"
-                          strokeWidth={3}
-                        >
-                          {coil.id}
-                        </text>
-                      </g>
-                    ))}
               </g>
             ))}
             {[go, back].map((p, i) => (
@@ -396,6 +384,71 @@ export function LinearWinding({
             ))}
           </g>
         ))}
+        {selectedRoute && (
+          <g data-layer="selected-coil-overlay" pointerEvents="none">
+            {/* Redraw above all other coils without changing keyboard order. */}
+            {selectedRoute.pieces.map((points, i) => (
+              <g key={`front-${i}`}>
+                <path
+                  d={polylinePath(points)}
+                  fill="none"
+                  stroke="white"
+                  strokeWidth={5}
+                />
+                {wire(points, color(selectedRoute.coil), true)}
+                {animate && (
+                  <path
+                    d={polylinePath(points)}
+                    fill="none"
+                    stroke="white"
+                    strokeWidth={1.6}
+                    strokeDasharray="3 22"
+                    className="trace-line"
+                  />
+                )}
+              </g>
+            ))}
+            {!contextWidth &&
+              [
+                ...selectedRoute.pieces,
+                ...(showCoilReturns ? selectedRoute.returnPieces : []),
+              ].flatMap((points, i) =>
+                points
+                  .filter(
+                    (p) =>
+                      Math.abs(p.x - left) < 0.01 ||
+                      Math.abs(p.x - right) < 0.01,
+                  )
+                  .map((p, j) => (
+                    <g
+                      key={`${i}:${j}`}
+                      data-continuation-coil={selectedRoute.coil.id}
+                    >
+                      <circle
+                        cx={p.x}
+                        cy={p.y}
+                        r={3}
+                        fill={color(selectedRoute.coil)}
+                      />
+                      <text
+                        x={Math.abs(p.x - left) < 0.01 ? left - 7 : right + 7}
+                        y={p.y + 4}
+                        textAnchor={
+                          Math.abs(p.x - left) < 0.01 ? 'end' : 'start'
+                        }
+                        fontSize={10}
+                        fill={color(selectedRoute.coil)}
+                        paintOrder="stroke"
+                        stroke="white"
+                        strokeWidth={3}
+                      >
+                        {selectedRoute.coil.id}
+                      </text>
+                    </g>
+                  )),
+              )}
+          </g>
+        )}
         {Array.from({ length: design.params.slots }, (_, i) => (
           <text
             key={i}

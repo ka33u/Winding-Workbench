@@ -79,6 +79,19 @@ export function WorkspacePanel({
     Math.max(0, Math.ceil(coils.length / 30) - 1),
   );
   const selectedCoil = coils.find((c) => c.id === selected);
+  const selectedGroup = selectedCoil?.group
+    ? design.coils
+        .filter((c) => c.group === selectedCoil.group)
+        .sort((a, b) => Math.abs(a.span) - Math.abs(b.span))
+    : [];
+  const branchCoils = selectedCoil
+    ? coils.filter(
+        (c) => c.phase === selectedCoil.phase && c.path === selectedCoil.path,
+      )
+    : [];
+  const branchIndex = branchCoils.findIndex((c) => c.id === selected);
+  const previousCoil = branchCoils[branchIndex - 1];
+  const nextCoil = branchCoils[branchIndex + 1];
   const exportScope = `${phase}_${path ? `第${path}路` : '全部支路'}`;
   const exportLabel = `${phase === 'all' ? '全部相' : phase + '相'} · ${path ? `第 ${path} 路` : '全部支路'}`;
   const coilSpans = useMemo(
@@ -459,6 +472,66 @@ export function WorkspacePanel({
             >
               <X size={15} />
             </button>
+            {selectedGroup.length > 0 && (
+              <div className="coil-relations" aria-label="同心组内外圈">
+                <span>同心组 · 从内圈到外圈</span>
+                <div className="coil-relation-buttons">
+                  {selectedGroup.map((c) => (
+                    <button
+                      key={c.id}
+                      aria-pressed={c.id === selected}
+                      aria-label={`查看同心组线圈 ${c.id}，节距 ${Math.abs(c.span)} 槽`}
+                      disabled={!coils.some((visible) => visible.id === c.id)}
+                      title={`${c.go}槽 L${c.goLayer} → ${c.back}槽 L${c.backLayer}${coils.some((visible) => visible.id === c.id) ? '' : ' · 切换全部支路可查看'}`}
+                      onClick={() => c.id !== selected && pick(c.id)}
+                    >
+                      <strong>{c.id}</strong>
+                      <span>
+                        {c.go} → {c.back} · y={Math.abs(c.span)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {design.params.windingType !== 'lap' && (
+              <div className="coil-relations" aria-label="串联线圈导航">
+                <span>
+                  第 {selectedCoil.path} 路 · 串联顺序 {selectedCoil.order} /{' '}
+                  {branchCoils.length}
+                </span>
+                <div className="coil-relation-buttons">
+                  <button
+                    disabled={!previousCoil}
+                    onClick={() => previousCoil && pick(previousCoil.id)}
+                  >
+                    <strong>
+                      {previousCoil
+                        ? `← 上一线圈 ${previousCoil.id}`
+                        : '支路首端'}
+                    </strong>
+                    {previousCoil && (
+                      <span>
+                        跨接 {previousCoil.back} → {selectedCoil.go} 槽
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    disabled={!nextCoil}
+                    onClick={() => nextCoil && pick(nextCoil.id)}
+                  >
+                    <strong>
+                      {nextCoil ? `下一线圈 ${nextCoil.id} →` : '支路末端'}
+                    </strong>
+                    {nextCoil && (
+                      <span>
+                        跨接 {selectedCoil.back} → {nextCoil.go} 槽
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>
