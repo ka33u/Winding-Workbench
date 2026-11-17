@@ -5,7 +5,6 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { Pause, Play, Waves } from 'lucide-react';
 import { Harmonics } from './Harmonics';
 import { useAnimationVisibility } from './useAnimationVisibility';
-import { Slider } from '@/components/ui/slider';
 import { mmf, COLORS, type Phase, type Winding } from '@/lib/winding';
 
 export function Analysis({
@@ -56,7 +55,10 @@ export function Analysis({
   return (
     <div className="analysis-grid">
       <Harmonics design={design} phase={phase} />
-      <section ref={target} className="panel analysis-panel">
+      <section
+        ref={target}
+        className={`panel analysis-panel mmf-panel${playing && visible ? ' is-playing' : ''}`}
+      >
         <div className="panel-title">
           <h3>
             <Waves size={17} />
@@ -116,15 +118,17 @@ export function Analysis({
         </svg>
         <div className="angle-control">
           <span id={angleLabelId}>电流相角</span>
-          <Slider
-            value={[angle]}
+          <input
+            className="angle-slider"
+            type="range"
+            value={angle}
             min={0}
             max={360}
             step={1}
             aria-labelledby={angleLabelId}
-            onValueChange={(v) => {
+            onChange={(event) => {
               setPlaying(false);
-              setAngle(Array.isArray(v) ? v[0] : v);
+              setAngle(event.currentTarget.valueAsNumber);
             }}
           />
           <output>{angle.toFixed(0)}°</output>

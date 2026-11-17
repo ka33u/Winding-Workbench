@@ -57,6 +57,7 @@ P是极数，p=P/2；y为两个槽号的距离（不把首尾槽计数作为节�
 - [验收状态与继续工作记录](docs/ACCEPTANCE.md)
 - [同心式模型、公开图例及验证边界](docs/CONCENTRIC.md)
 - [本次更新：即时切换、单层链式与逐槽对照](docs/CHAIN_WINDING.md)
+- [本地动画性能修复与浏览器实测](docs/ANIMATION_PERFORMANCE.md)
 - [18槽Motor-CAD参考图对照](docs/MOTORCAD_18SLOT_COMPARISON.md)
 - [54槽三路Motor-CAD对照与通用分路优化](docs/MOTORCAD_54SLOT_COMPARISON.md)
 - [72槽84极六路齿绕Motor-CAD对照](docs/MOTORCAD_72SLOT_COMPARISON.md)

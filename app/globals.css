@@ -495,6 +495,10 @@ h1 {
 }
 .diagram-scroll {
   overflow: auto;
+  /* Keep the large SVG display list out of unrelated animation repaints.
+     The scrollport bounds the composited surface, even for many-slot models. */
+  contain: layout paint;
+  transform: translateZ(0);
   overscroll-behavior: contain;
   background: #fcfdff;
   border-top: 1px solid #eef1f6;
@@ -1043,6 +1047,16 @@ h1 {
 .analysis-panel {
   padding: 20px;
 }
+.mmf-panel {
+  /* A changing waveform must not invalidate the large winding SVG elsewhere
+     in the document. Keep slider layout and painting inside this panel. */
+  contain: layout paint;
+}
+.mmf-panel.is-playing {
+  /* Give the moving panel its own compositor layer only while it is visible
+     and playing; release the allocation when paused or offscreen. */
+  will-change: transform;
+}
 .analysis-panel svg[role='img'] {
   width: 100%;
   display: block;
@@ -1071,6 +1085,15 @@ h1 {
 .angle-control output {
   min-width: 40px;
   text-align: right;
+}
+.angle-slider {
+  /* Native range positioning avoids synchronous geometry reads each frame. */
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  margin: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
 }
 .notice {
   position: fixed;
@@ -1174,6 +1197,8 @@ h1 {
   .diagram-scroll {
     overflow: visible;
     max-height: none;
+    contain: none;
+    transform: none;
   }
   .winding-svg {
     min-width: 0 !important;
