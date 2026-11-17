@@ -74,13 +74,26 @@ export function LinearWinding({
   const instanceId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const periodId = `linear-period-${instanceId}`;
   const returnMaskId = `${periodId}-return-clearance`;
+  const selectedGroup = layout.coils.find(({ coil }) => coil.id === selected)
+    ?.coil.group;
+  const related = new Set(
+    selectedGroup
+      ? layout.coils
+          .filter(({ coil }) => coil.group === selectedGroup)
+          .map(({ coil }) => coil.id)
+      : [],
+  );
   const branches = [
     ...new Map(
       layout.coils.map(({ coil }) => [`${coil.phase}:${coil.path}`, coil]),
     ).values(),
   ].sort((a, b) => a.phase.localeCompare(b.phase) || a.path - b.path);
   const fade = (...ids: string[]) =>
-    selected && !ids.includes(selected) ? 0.13 : 1;
+    selected && !ids.includes(selected)
+      ? ids.some((id) => related.has(id))
+        ? 0.6
+        : 0.13
+      : 1;
   const wire = (points: Point[], stroke: string, heavy = false) => (
     <path
       d={polylinePath(points)}
@@ -150,14 +163,14 @@ export function LinearWinding({
             x={left}
             y={bottom - 1}
             width={right - left}
-            height={22}
+            height={layout.returnBottom - bottom + 4}
             style={{ maskType: 'luminance' }}
           >
             <rect
               x={left}
               y={bottom - 1}
               width={right - left}
-              height={22}
+              height={layout.returnBottom - bottom + 4}
               fill="white"
             />
             <g fill="none" stroke="black" strokeWidth={5.5}>
@@ -176,7 +189,11 @@ export function LinearWinding({
           </mask>
         </defs>
       )}
-      <g id={periodId} data-layer="one-stator-period">
+      <g
+        id={periodId}
+        data-layer="one-stator-period"
+        data-winding-form={design.params.windingType}
+      >
         {Array.from({ length: design.params.slots }, (_, i) => (
           <g key={i} data-slot={i + 1}>
             <rect
@@ -304,8 +321,13 @@ export function LinearWinding({
           </g>
         )}
         {layout.coils.map(({ coil, pieces, go, back }) => (
-          <g key={coil.id} {...hit(coil)} opacity={fade(coil.id)}>
-            <title>{`${coil.id}：${coil.go}槽 L${coil.goLayer} → ${coil.back}槽 L${coil.backLayer}，${coil.turns}匝`}</title>
+          <g
+            key={coil.id}
+            {...hit(coil)}
+            data-coil-group={coil.group}
+            opacity={fade(coil.id)}
+          >
+            <title>{`${coil.id}：${coil.go}槽 L${coil.goLayer} → ${coil.back}槽 L${coil.backLayer}，${coil.turns}匝${coil.group ? `，同心组 ${coil.group}，节距 ${Math.abs(coil.span)}` : ''}`}</title>
             <rect
               data-coil-anchor={coil.id}
               x={go.x - 4}
@@ -519,7 +541,7 @@ export function LinearWinding({
       )}
       <text
         x={left - contextWidth}
-        y={(showConnections ? height : bottom + 62) - 21}
+        y={(showConnections ? height : layout.returnBottom + 44) - 21}
         fill="#718093"
         fontSize={11}
       >

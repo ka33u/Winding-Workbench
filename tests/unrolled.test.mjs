@@ -36,7 +36,8 @@ function check(d, cs = d.coils) {
       .filter(
         ([a, b]) =>
           Math.abs(a.x - b.x) < 1e-6 &&
-          Math.abs(a.y - b.y) >= layout.bottom - layout.top - 1e-6,
+          Math.min(a.y, b.y) <= layout.top + 1e-6 &&
+          Math.max(a.y, b.y) >= layout.bottom - 1e-6,
       );
     assert.equal(
       vertical.length,

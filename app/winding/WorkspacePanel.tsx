@@ -217,6 +217,14 @@ export function WorkspacePanel({
                 : `${coilSpans[0]}–${coilSpans.at(-1)}（${coilSpans.length} 种）`}{' '}
               槽
             </p>
+            {view === 'linear' && design.params.windingType !== 'lap' && (
+              <p className="field-note" aria-label="绕组结构说明">
+                {design.params.windingType === 'concentric'
+                  ? '同组线圈共中心、按实际节距内外嵌套；选中线圈可对照同组内外圈。'
+                  : '等尺寸线圈交替嵌放；上下端部构成链环，细回线下方为串联跨接。'}
+                {!showCoilReturns && ' 开启“线圈回路线”可查看完整线圈形状。'}
+              </p>
+            )}
           </div>
           <div className="phase-filter" aria-label="显示相别">
             {(['all', ...PHASES] as const).map((ph) => (

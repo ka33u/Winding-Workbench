@@ -40,6 +40,8 @@ export type UnrolledLayout = {
   step: number;
   top: number;
   bottom: number;
+  /** Lowest rear end turn; series rails and the cropped view must clear it. */
+  returnBottom: number;
   terminalY: number;
   slotWidth: number;
   coils: CoilRoute[];
@@ -99,7 +101,7 @@ export function unrolledLayout(
   design: Winding,
   visible: Coil[],
 ): UnrolledLayout {
-  const { slots, layers } = design.params;
+  const { slots, layers, windingType } = design.params;
   const shown = new Set(visible.map((c) => c.id));
   const rawLinks: { from: Coil; to: Coil; node: string }[] = [];
   const rawLeads: Omit<LeadRoute, 'points' | 'labelRow'>[] = [];
@@ -150,42 +152,137 @@ export function unrolledLayout(
   // narrow legs and place arrows. Distributed coils keep their shallow roof.
   const toothCoils =
     visible.length > 0 && visible.every((c) => Math.abs(c.span) === 1);
-  const top = toothCoils ? 172 : 98,
+  // Use complete groups for nesting ranks so a branch filter cannot collapse
+  // the space of a hidden inner coil. Only visible groups need routing tiers.
+  const groupSpans = new Map<string, number[]>();
+  const groupLevels = new Map<string, number>();
+  if (windingType === 'concentric') {
+    const groups = new Map<string, Coil[]>();
+    const shownGroups = new Set(visible.map((c) => c.group ?? c.id));
+    for (const c of design.coils) {
+      const key = c.group ?? c.id;
+      if (!shownGroups.has(key)) continue;
+      if (!groupSpans.has(key)) groupSpans.set(key, []);
+      groupSpans.get(key)!.push(Math.abs(c.span));
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(c);
+    }
+    for (const [key, spans] of groupSpans)
+      groupSpans.set(
+        key,
+        [...new Set(spans)].sort((a, b) => a - b),
+      );
+    // Different groups may overlap in the unrolled projection. Allocate whole
+    // nested groups together so their flat end turns never share a drawn run.
+    const tiers: [number, number][][] = [];
+    for (const [key, group] of groups) {
+      const intervals = group.map((c) => {
+        const a = x(c.go, c.goLayer);
+        const b =
+          x(c.back, c.backLayer) + ((c.go + c.span - c.back) / slots) * period;
+        return {
+          rank: groupSpans.get(key)!.indexOf(Math.abs(c.span)),
+          pieces: periodicPieces(
+            [
+              { x: a, y: 0 },
+              { x: b, y: 0 },
+            ],
+            left,
+            right,
+          ).map((p): [number, number] => [
+            Math.min(p[0].x, p.at(-1)!.x),
+            Math.max(p[0].x, p.at(-1)!.x),
+          ]),
+        };
+      });
+      let level = 0;
+      while (
+        intervals.some(({ rank, pieces }) =>
+          pieces.some(([lo, hi]) =>
+            (tiers[level + rank] ?? []).some(
+              ([a, b]) => hi + 12 >= a && b + 12 >= lo,
+            ),
+          ),
+        )
+      )
+        level++;
+      groupLevels.set(key, level);
+      for (const { rank, pieces } of intervals) {
+        tiers[level + rank] ??= [];
+        tiers[level + rank].push(...pieces);
+      }
+    }
+  }
+  const formDepth = (c: Coil) =>
+    windingType === 'concentric'
+      ? 30 +
+        14 *
+          (groupLevels.get(c.group ?? c.id)! +
+            groupSpans.get(c.group ?? c.id)!.indexOf(Math.abs(c.span)))
+      : Math.min(72, Math.max(38, Math.abs(c.span) * step * 0.22));
+  const formHeight = Math.max(0, ...visible.map(formDepth));
+  const top = windingType === 'lap' ? (toothCoils ? 172 : 98) : 60 + formHeight,
     bottom = top + 148;
+  // Chamfered concentric end turns keep a common centre and visibly separate
+  // every size. Chain turns mirror front/rear to form equal-width chain links.
+  const concentricTurn = (a: number, b: number, y: number, depth: number) => {
+    const corner = Math.min(10, Math.abs(b - a) / 4);
+    const sign = Math.sign(b - a),
+      direction = Math.sign(depth);
+    return [
+      { x: a, y },
+      { x: a, y: y + depth - direction * corner },
+      { x: a + sign * corner, y: y + depth },
+      { x: b - sign * corner, y: y + depth },
+      { x: b, y: y + depth - direction * corner },
+      { x: b, y },
+    ];
+  };
   const coils = visible.map((coil): CoilRoute => {
     const a = x(coil.go, coil.goLayer),
       backX = x(coil.back, coil.backLayer);
     const delta = coil.span;
     const b = backX + ((coil.go + delta - coil.back) / slots) * period;
-    const rise = toothCoils
-      ? 108
-      : Math.min(42, Math.max(22, Math.abs(b - a) * 0.14));
-    const points = [
-      { x: a, y: bottom },
-      { x: a, y: top },
-      { x: (a + b) / 2, y: top - rise },
-      { x: b, y: top },
-      { x: b, y: bottom },
-    ];
+    const rise =
+      windingType !== 'lap'
+        ? formDepth(coil)
+        : toothCoils
+          ? 108
+          : Math.min(42, Math.max(22, Math.abs(b - a) * 0.14));
+    const rearDepth =
+      windingType === 'lap'
+        ? Math.min(18, Math.max(9, Math.abs(b - a) * 0.1))
+        : rise;
+    const front =
+      windingType === 'concentric'
+        ? concentricTurn(a, b, top, -rise)
+        : [
+            { x: a, y: top },
+            { x: (a + b) / 2, y: top - rise },
+            { x: b, y: top },
+          ];
+    const rear =
+      windingType === 'concentric'
+        ? concentricTurn(b, a, bottom, rearDepth)
+        : [
+            { x: b, y: bottom },
+            { x: (a + b) / 2, y: bottom + rearDepth },
+            { x: a, y: bottom },
+          ];
+    const points = [{ x: a, y: bottom }, ...front, { x: b, y: bottom }];
     return {
       coil,
       pieces: periodicPieces(points, left, right),
-      returnPieces: periodicPieces(
-        [
-          { x: b, y: bottom },
-          {
-            x: (a + b) / 2,
-            y: bottom + Math.min(18, Math.max(9, Math.abs(b - a) * 0.1)),
-          },
-          { x: a, y: bottom },
-        ],
-        left,
-        right,
-      ),
+      returnPieces: periodicPieces(rear, left, right),
       go: { x: a, y: bottom },
       back: { x: backX, y: bottom },
     };
   });
+  const returnBottom = Math.max(
+    bottom,
+    ...coils.flatMap((c) => c.returnPieces.flat().map((p) => p.y)),
+  );
+  const connectionTop = Math.max(bottom + 40, returnBottom + 22);
   // Route short spans first so nested crossovers sit below their inner connections.
   // This removes avoidable crossings without changing the series order in the netlist.
   const span = (link: (typeof rawLinks)[number]) => {
@@ -222,8 +319,8 @@ export function unrolledLayout(
       lanes.push([]);
     }
     lanes[lane].push(...intervals);
-    // Reserve a shallow band for the rear coil loops above the series rails.
-    const y = bottom + 40 + lane * 16;
+    // Reserve the actual rear-turn envelope, including nested/chain loops.
+    const y = connectionTop + lane * 16;
     const points = [
       { x: a, y: bottom },
       { x: a, y },
@@ -232,7 +329,7 @@ export function unrolledLayout(
     ];
     return { ...link, lane, pieces: periodicPieces(points, left, right) };
   });
-  const wireBottom = bottom + 40 + Math.max(0, lanes.length - 1) * 16;
+  const wireBottom = connectionTop + Math.max(0, lanes.length - 1) * 16;
   const fanoutTop = wireBottom + 24;
   const fanoutBottom = fanoutTop + 36;
   const terminalY = fanoutBottom + (toothCoils ? 112 : 36);
@@ -332,6 +429,7 @@ export function unrolledLayout(
     step,
     top,
     bottom,
+    returnBottom,
     terminalY,
     slotWidth: Math.max(18, Math.min(step - 9, layers * 8 + 10)),
     coils,

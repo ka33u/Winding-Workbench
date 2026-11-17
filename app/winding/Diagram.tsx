@@ -123,7 +123,7 @@ export function Diagram({
     const contextWidth = contextSlots * linear!.step;
     originX = -contextWidth;
     width = linear!.width + 2 * contextWidth;
-    height = showConnections ? linear!.height : linear!.bottom + 62;
+    height = showConnections ? linear!.height : linear!.returnBottom + 44;
     content = (
       <LinearWinding
         design={design}

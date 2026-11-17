@@ -5,6 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { renderToStaticMarkup } from 'react-dom/server';
 import React from 'react';
 import { generate, DEFAULTS, PRESETS, branchColor } from '../lib/winding.ts';
+import { unrolledLayout } from '../lib/unrolled.ts';
 const result = await build({
   entryPoints: ['app/winding/Diagram.tsx'],
   bundle: true,
@@ -17,6 +18,56 @@ const result = await build({
 await mkdir('.test-output', { recursive: true });
 await writeFile('.test-output/diagram.mjs', result.outputFiles[0].text);
 const { Diagram } = await import('../.test-output/diagram.mjs');
+test('type-specific deep rear turns remain inside the SVG and clearance mask with connections hidden or visible', () => {
+  for (const params of [
+    PRESETS[4].params,
+    PRESETS[8].params,
+    {
+      ...DEFAULTS,
+      slots: 360,
+      poles: 12,
+      paths: 12,
+      pitch: 39,
+      windingType: 'concentric',
+    },
+  ]) {
+    const design = generate(params).design;
+    const layout = unrolledLayout(
+      design,
+      design.coils.filter((c) => c.phase === 'U'),
+    );
+    for (const showConnections of [false, true]) {
+      const html = renderToStaticMarkup(
+        React.createElement(Diagram, {
+          design,
+          phase: 'U',
+          showConnections,
+          periodicContext: false,
+        }),
+      );
+      const height = Number(
+        html
+          .match(/viewBox="[^"]+"/)[0]
+          .split(' ')
+          .at(-1)
+          .replace('"', ''),
+      );
+      assert.ok(
+        height > layout.returnBottom + 20,
+        'deep rear turns must not be cropped',
+      );
+      if (showConnections) {
+        const mask = html.match(/<mask\b[^>]+>/)[0];
+        const y = Number(mask.match(/\by="([^"]+)"/)[1]);
+        const h = Number(mask.match(/\bheight="([^"]+)"/)[1]);
+        assert.ok(
+          y + h > layout.returnBottom,
+          'clearance mask must cover every nested/chain loop',
+        );
+      }
+    }
+  }
+});
 test('fit zoom uses the intrinsic SVG width, including enlargement with continuous development off', () => {
   for (const params of [
     PRESETS[5].params,
