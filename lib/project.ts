@@ -38,7 +38,9 @@ export function encodeProject(d: Winding): string {
         model:
           d.params.windingType === 'concentric'
             ? 'three-phase equal-turn concentric groups'
-            : 'three-phase equal-turn equal-pitch',
+            : d.params.windingType === 'chain'
+              ? 'three-phase single-layer equal-pitch chain'
+              : 'three-phase equal-turn equal-pitch',
       },
     },
     null,
@@ -71,7 +73,7 @@ export function decodeProject(text: string): Params {
     doc.params.windingType !== 'lap'
   )
     throw new Error(
-      'E_FILE_SCHEMA：同心式方案需要 v2 格式，避免旧版将最大节距误解为等节距。',
+      'E_FILE_SCHEMA：同心式及链式方案需要 v2 格式，避免旧版按叠绕解读。',
     );
   const p = Object.fromEntries(
     Object.keys(DEFAULTS).map((k) => [

@@ -40,6 +40,7 @@ import {
   DEFAULTS,
   PRESETS,
   COLORS,
+  WINDING_TYPE_NAMES,
   generate,
   type Params,
   type Phase,
@@ -236,7 +237,18 @@ export default function Home() {
                           ['1', '单层'],
                           ['2', '双层'],
                         ]}
-                        onChange={(v) => update(k, Number(v))}
+                        onChange={(v) => {
+                          const layers = Number(v);
+                          const windingType =
+                            layers === 2 && params.windingType === 'chain'
+                              ? 'lap'
+                              : params.windingType;
+                          run({ ...params, layers, windingType }, true);
+                          if (windingType !== params.windingType)
+                            setNotice(
+                              '链式仅支持单层，已切换为双层叠绕并重新生成。',
+                            );
+                        }}
                       />
                     ) : (
                       <input
@@ -271,16 +283,23 @@ export default function Home() {
                 <Choice
                   label="绕组形式"
                   value={params.windingType}
-                  options={[
-                    ['lap', '叠绕 · 等节距'],
-                    ['concentric', '同心式 · 线圈组'],
-                  ]}
+                  options={(
+                    Object.entries(WINDING_TYPE_NAMES) as [
+                      Params['windingType'],
+                      string,
+                    ][]
+                  ).filter(([type]) => params.layers === 1 || type !== 'chain')}
                   onChange={(v) => {
-                    update('windingType', v as Params['windingType']);
-                    setAutomaticPitch(true);
+                    run(
+                      { ...params, windingType: v as Params['windingType'] },
+                      true,
+                    );
                   }}
                 />
               </div>
+              <p className="field-note">
+                切换形式或层数会自动选节距并重新生成。链式仅在单层时可选。
+              </p>
               <div className="field full pitch-mode">
                 <span>节距选择</span>
                 <Choice
@@ -355,9 +374,11 @@ export default function Home() {
               <p className="field-note" id="pitch-guidance">
                 {params.windingType === 'concentric'
                   ? '最大节距指最外侧线圈的槽数跨度；同组线圈共中心、节距不同。各线圈实际节距见下方明细。自动按极距及相带宽度向下搜索。'
-                  : automaticPitch
-                    ? '从不超过一极距的最大整槽节距向下检查，采用首个有效方案；单层仅选奇数，极距不足一槽时试 1 槽。此规则不优化谐波或端部长度。'
-                    : '节距按槽数之差计：1 → 9 为 8 槽。'}
+                  : params.windingType === 'chain'
+                    ? '单层链式采用相同大小的线圈，奇数节距交替占槽。支持 q = 1 或偶数整数；奇数 q > 1 的交叉链式另属一种排列，当前不自动代替。'
+                    : automaticPitch
+                      ? '从不超过一极距的最大整槽节距向下检查，采用首个有效方案；单层仅选奇数，极距不足一槽时试 1 槽。此规则不优化谐波或端部长度。'
+                      : '节距按槽数之差计：1 → 9 为 8 槽。'}
               </p>
               <div className="field full">
                 <span>端子接法</span>

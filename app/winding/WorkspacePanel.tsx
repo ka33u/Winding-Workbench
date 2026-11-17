@@ -31,6 +31,7 @@ import {
   PHASES,
   COLORS,
   branchColor,
+  WINDING_TYPE_NAMES,
   type Phase,
   type Winding,
 } from '@/lib/winding';
@@ -209,15 +210,13 @@ export function WorkspacePanel({
               {VIEWS.find((v) => v[0] === view)?.[1]}
               <span className="canvas-count">{coils.length} 个线圈</span>
             </h3>
-            {design.params.windingType === 'concentric' && (
-              <p className="field-note">
-                同心式 · 实际节距{' '}
-                {coilSpans.length <= 8
-                  ? coilSpans.join(' / ')
-                  : `${coilSpans[0]}–${coilSpans.at(-1)}（${coilSpans.length} 种）`}{' '}
-                槽
-              </p>
-            )}
+            <p className="field-note" aria-label="当前生成绕组">
+              {WINDING_TYPE_NAMES[design.params.windingType]} · 实际节距{' '}
+              {coilSpans.length <= 8
+                ? coilSpans.join(' / ')
+                : `${coilSpans[0]}–${coilSpans.at(-1)}（${coilSpans.length} 种）`}{' '}
+              槽
+            </p>
           </div>
           <div className="phase-filter" aria-label="显示相别">
             {(['all', ...PHASES] as const).map((ph) => (

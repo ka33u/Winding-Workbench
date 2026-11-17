@@ -23,7 +23,7 @@ export type Params = {
   paths: number;
   layers: number;
   pitch: number;
-  windingType: 'lap' | 'concentric';
+  windingType: 'lap' | 'concentric' | 'chain';
   turns: number;
   connection: 'star' | 'delta';
   sequence: 'UVW' | 'UWV';
@@ -149,7 +149,25 @@ export const PRESETS = [
       turns: 50,
     },
   },
+  {
+    name: '单层链式',
+    note: '24 槽 · 4 极 · 等节距 5',
+    params: {
+      ...DEFAULTS,
+      slots: 24,
+      poles: 4,
+      layers: 1,
+      paths: 1,
+      pitch: 5,
+      windingType: 'chain' as const,
+    },
+  },
 ];
+export const WINDING_TYPE_NAMES: Record<Params['windingType'], string> = {
+  lap: '叠绕 · 等节距',
+  concentric: '同心式 · 线圈组',
+  chain: '链式 · 单层等节距',
+};
 const TAU = Math.PI * 2;
 export const mod = (n: number, d: number) => ((n % d) + d) % d;
 export function gcd(a: number, b: number): number {
@@ -222,12 +240,12 @@ export function validateParams(p: Params): Issue[] {
         'connection',
       ),
     );
-  if (!['lap', 'concentric'].includes(p.windingType))
+  if (!['lap', 'concentric', 'chain'].includes(p.windingType))
     errors.push(
       issue(
         'E_WINDING_TYPE',
         '绕组形式无效',
-        '支持等节距叠绕和同心式线圈组。',
+        '支持等节距叠绕、同心式线圈组和单层链式。',
         '重新选择绕组形式。',
         'windingType',
       ),
@@ -293,6 +311,39 @@ export function validateParams(p: Params): Issue[] {
         'pitch',
       ),
     );
+  if (p.windingType === 'chain') {
+    if (p.layers !== 1)
+      errors.push(
+        issue(
+          'E_CHAIN_LAYERS',
+          '链式绕组需要单层',
+          '当前链式模型每槽只放置一个线圈边。',
+          '选择单层，或改用双层叠绕 / 同心式。',
+          'layers',
+        ),
+      );
+    if (p.pitch % 2 === 0)
+      errors.push(
+        issue(
+          'E_CHAIN_PITCH',
+          '链式绕组需要奇数节距',
+          '等节距链式线圈交替占用奇、偶槽；偶数节距不能覆盖所有槽。',
+          '改用自动节距或相邻奇数节距。',
+          'pitch',
+        ),
+      );
+    const q = p.slots / (3 * p.poles);
+    if (!Number.isInteger(q) || (q !== 1 && q % 2 !== 0))
+      errors.push(
+        issue(
+          'E_CHAIN_Q',
+          '当前槽极组合不属于普通链式范围',
+          `当前每极每相槽数 q = ${Number(q.toFixed(4))}；普通等节距链式支持 q = 1 或偶数整数。大于 1 的奇数 q 需要另建交叉链式模型，分数槽也不在本模型范围。`,
+          '可选“单层链式”24 槽 4 极示例，或使用叠绕 / 同心式；本次不会自动替换槽极数。',
+          'windingType',
+        ),
+      );
+  }
   if (p.poles % 2 === 0 && p.slots % (3 * gcd(p.slots, p.poles / 2)))
     errors.push(
       issue(
@@ -403,6 +454,20 @@ function symmetry(coils: Coil[], p: Params) {
       angle < 1e-6 &&
       Math.min(...sizes) > 1e-8,
   };
+}
+/** Equal-width single-layer chain: odd starts paired with even returns.
+ * This fixed alternating placement is distinct from the lap cycle matcher.
+ * See docs/CHAIN_WINDING.md for the independent slot-table reference.
+ */
+function makeChainCoils(p: Params): Coil[] | null {
+  const step = (360 * gcd(p.slots, p.poles / 2)) / p.slots;
+  for (const offset of [step / 4, 0, step / 2, 15, 30 - step / 4]) {
+    const coils: Coil[] = [];
+    for (let s = 1; s <= p.slots; s += 2)
+      coils.push(assign(s, mod(s - 1 + p.pitch, p.slots) + 1, 1, 1, p, offset));
+    if (symmetry(coils, p).valid) return coils;
+  }
+  return null;
 }
 function makeLapCoils(p: Params): Coil[] | null {
   const step = (360 * gcd(p.slots, p.poles / 2)) / p.slots;
@@ -724,7 +789,9 @@ export function generate(p: Params): Result {
   const coils =
     p.windingType === 'concentric'
       ? makeConcentric(p, makeLapCoils)
-      : makeLapCoils(p);
+      : p.windingType === 'chain'
+        ? makeChainCoils(p)
+        : makeLapCoils(p);
   if (!coils)
     return {
       ok: false,
