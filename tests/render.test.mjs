@@ -29,6 +29,7 @@ test('selected wrapping coils retain rear hit targets, both continuation pairs a
       windingType: 'concentric',
     },
     PRESETS[8].params,
+    PRESETS[9].params,
   ]) {
     const design = generate(params).design;
     const coil = design.coils.find(
@@ -75,6 +76,7 @@ test('type-specific deep rear turns remain inside the SVG and clearance mask wit
   for (const params of [
     PRESETS[4].params,
     PRESETS[8].params,
+    PRESETS[9].params,
     {
       ...DEFAULTS,
       slots: 360,

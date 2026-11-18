@@ -23,7 +23,7 @@ export type Params = {
   paths: number;
   layers: number;
   pitch: number;
-  windingType: 'lap' | 'concentric' | 'chain';
+  windingType: 'lap' | 'concentric' | 'chain' | 'crossChain';
   turns: number;
   connection: 'star' | 'delta';
   sequence: 'UVW' | 'UWV';
@@ -162,11 +162,51 @@ export const PRESETS = [
       windingType: 'chain' as const,
     },
   },
+  {
+    name: '单层交叉式',
+    note: '36 槽 · 4 极 · 单双圈组 7 / 8',
+    params: {
+      ...DEFAULTS,
+      slots: 36,
+      poles: 4,
+      layers: 1,
+      paths: 1,
+      pitch: 8,
+      windingType: 'crossChain' as const,
+    },
+  },
+  {
+    name: '单层交叉同心式',
+    note: '24 槽 · 2 极 · 同心组 9 / 11',
+    params: {
+      ...DEFAULTS,
+      slots: 24,
+      poles: 2,
+      layers: 1,
+      paths: 1,
+      pitch: 11,
+      windingType: 'concentric' as const,
+    },
+  },
+  {
+    name: '两极交叉链式',
+    note: '18 槽 · 2 极 · 参考书例 1-2',
+    params: {
+      ...DEFAULTS,
+      slots: 18,
+      poles: 2,
+      layers: 1,
+      paths: 1,
+      pitch: 8,
+      windingType: 'crossChain' as const,
+    },
+  },
 ];
 export const WINDING_TYPE_NAMES: Record<Params['windingType'], string> = {
   lap: '叠绕 · 等节距',
   concentric: '同心式 · 线圈组',
   chain: '链式 · 单层等节距',
+  crossChain: '单层交叉式 · 交叉链式',
 };
 const TAU = Math.PI * 2;
 export const mod = (n: number, d: number) => ((n % d) + d) % d;
@@ -240,12 +280,15 @@ export function validateParams(p: Params): Issue[] {
         'connection',
       ),
     );
-  if (!['lap', 'concentric', 'chain'].includes(p.windingType))
+  if (
+    typeof p.windingType !== 'string' ||
+    !Object.hasOwn(WINDING_TYPE_NAMES, p.windingType)
+  )
     errors.push(
       issue(
         'E_WINDING_TYPE',
         '绕组形式无效',
-        '支持等节距叠绕、同心式线圈组和单层链式。',
+        '支持等节距叠绕、同心式线圈组、单层链式和单层交叉式。',
         '重新选择绕组形式。',
         'windingType',
       ),
@@ -311,6 +354,38 @@ export function validateParams(p: Params): Issue[] {
         'pitch',
       ),
     );
+  if (p.windingType === 'crossChain') {
+    if (p.layers !== 1)
+      errors.push(
+        issue(
+          'E_CROSS_LAYERS',
+          '交叉链式需要单层',
+          '每槽容纳一个线圈边。',
+          '选择单层。',
+          'layers',
+        ),
+      );
+    if (p.slots !== 9 * p.poles)
+      errors.push(
+        issue(
+          'E_CROSS_Q',
+          '此交叉式需要每极每相 3 槽',
+          '单双圈交替排列按每极 9 槽重复。',
+          '可选 36 槽 4 极或 54 槽 6 极。',
+          'slots',
+        ),
+      );
+    if (p.pitch !== 8)
+      errors.push(
+        issue(
+          'E_CROSS_PITCH',
+          '双圈组节距应为 8 槽',
+          '双圈组节距 8 槽，单圈组节距 7 槽。',
+          '使用自动节距或将大圈节距设为 8。',
+          'pitch',
+        ),
+      );
+  }
   if (p.windingType === 'chain') {
     if (p.layers !== 1)
       errors.push(
@@ -338,8 +413,8 @@ export function validateParams(p: Params): Issue[] {
         issue(
           'E_CHAIN_Q',
           '当前槽极组合不属于普通链式范围',
-          `当前每极每相槽数 q = ${Number(q.toFixed(4))}；普通等节距链式支持 q = 1 或偶数整数。大于 1 的奇数 q 需要另建交叉链式模型，分数槽也不在本模型范围。`,
-          '可选“单层链式”24 槽 4 极示例，或使用叠绕 / 同心式；本次不会自动替换槽极数。',
+          `当前每极每相槽数 q = ${Number(q.toFixed(4))}；普通等节距链式支持 q = 1 或偶数整数。q = 3 可选择单层交叉式。`,
+          '可选“单层链式”24 槽 4 极示例，或选择适合当前槽极的绕组形式。',
           'windingType',
         ),
       );
@@ -468,6 +543,29 @@ function makeChainCoils(p: Params): Coil[] | null {
     if (symmetry(coils, p).valid) return coils;
   }
   return null;
+}
+// Within each six-slot block, the two adjacent starts have a span of eight.
+// Their returns occupy residues 3 and 4. The short coil fills residues 5 and 6.
+function makeCrossChainCoils(p: Params): Coil[] {
+  const coils: Coil[] = [];
+  const groupCount = { U: 0, V: 0, W: 0 };
+  for (let first = 1; first <= p.slots; first += 6) {
+    for (const [start, size, pitch] of [
+      [first, 2, 8],
+      [first + 4, 1, 7],
+    ]) {
+      let group = '';
+      for (let i = 0; i < size; i++) {
+        const go = start + i;
+        const back = mod(go - 1 + pitch, p.slots) + 1;
+        const coil = assign(go, back, 1, 1, { ...p, pitch }, 0);
+        if (i === 0) group = `${coil.phase}-G${++groupCount[coil.phase]}`;
+        coil.group = group;
+        coils.push(coil);
+      }
+    }
+  }
+  return coils;
 }
 function makeLapCoils(p: Params): Coil[] | null {
   const step = (360 * gcd(p.slots, p.poles / 2)) / p.slots;
@@ -791,7 +889,9 @@ export function generate(p: Params): Result {
       ? makeConcentric(p, makeLapCoils)
       : p.windingType === 'chain'
         ? makeChainCoils(p)
-        : makeLapCoils(p);
+        : p.windingType === 'crossChain'
+          ? makeCrossChainCoils(p)
+          : makeLapCoils(p);
   if (!coils)
     return {
       ok: false,

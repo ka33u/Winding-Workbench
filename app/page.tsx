@@ -240,14 +240,14 @@ export default function Home() {
                         onChange={(v) => {
                           const layers = Number(v);
                           const windingType =
-                            layers === 2 && params.windingType === 'chain'
+                            layers === 2 &&
+                            (params.windingType === 'chain' ||
+                              params.windingType === 'crossChain')
                               ? 'lap'
                               : params.windingType;
                           run({ ...params, layers, windingType }, true);
                           if (windingType !== params.windingType)
-                            setNotice(
-                              '链式仅支持单层，已切换为双层叠绕并重新生成。',
-                            );
+                            setNotice('已按双层叠绕重新生成。');
                         }}
                       />
                     ) : (
@@ -288,7 +288,11 @@ export default function Home() {
                       Params['windingType'],
                       string,
                     ][]
-                  ).filter(([type]) => params.layers === 1 || type !== 'chain')}
+                  ).filter(
+                    ([type]) =>
+                      params.layers === 1 ||
+                      (type !== 'chain' && type !== 'crossChain'),
+                  )}
                   onChange={(v) => {
                     run(
                       { ...params, windingType: v as Params['windingType'] },
@@ -300,39 +304,45 @@ export default function Home() {
               <p className="field-note">
                 切换形式或层数会自动选节距并重新生成。链式仅在单层时可选。
               </p>
-              <div className="field full pitch-mode">
-                <span>节距选择</span>
-                <Choice
-                  label="节距选择"
-                  value={automaticPitch ? 'auto' : 'manual'}
-                  options={[
-                    [
-                      'auto',
-                      params.windingType === 'concentric'
-                        ? '自动 · 按线圈组选择'
-                        : '自动 · 接近一个极距',
-                    ],
-                    ['manual', '手动指定节距'],
-                  ]}
-                  onChange={(v) => {
-                    setAutomaticPitch(v === 'auto');
-                    setChanged(true);
-                  }}
-                />
-              </div>
+              {params.windingType !== 'crossChain' && (
+                <div className="field full pitch-mode">
+                  <span>节距选择</span>
+                  <Choice
+                    label="节距选择"
+                    value={automaticPitch ? 'auto' : 'manual'}
+                    options={[
+                      [
+                        'auto',
+                        params.windingType === 'concentric'
+                          ? '自动 · 按线圈组选择'
+                          : '自动 · 接近一个极距',
+                      ],
+                      ['manual', '手动指定节距'],
+                    ]}
+                    onChange={(v) => {
+                      setAutomaticPitch(v === 'auto');
+                      setChanged(true);
+                    }}
+                  />
+                </div>
+              )}
               <div className="field-grid">
                 <label className="field">
                   <span>
-                    {params.windingType === 'concentric'
-                      ? '最大线圈节距'
-                      : automaticPitch
-                        ? '已生成节距'
-                        : '线圈节距'}
+                    {params.windingType === 'crossChain'
+                      ? '双圈组节距'
+                      : params.windingType === 'concentric'
+                        ? '最大线圈节距'
+                        : automaticPitch
+                          ? '已生成节距'
+                          : '线圈节距'}
                     <i>y</i>
                   </span>
                   <input
                     type="number"
-                    disabled={automaticPitch}
+                    disabled={
+                      automaticPitch || params.windingType === 'crossChain'
+                    }
                     name="pitch"
                     aria-describedby="pitch-guidance"
                     aria-invalid={
@@ -340,11 +350,13 @@ export default function Home() {
                       result.issues.some((i) => i.field === 'pitch')
                     }
                     value={
-                      automaticPitch
-                        ? (design?.params.pitch ?? '')
-                        : Number.isNaN(params.pitch)
-                          ? ''
-                          : params.pitch
+                      params.windingType === 'crossChain'
+                        ? 8
+                        : automaticPitch
+                          ? (design?.params.pitch ?? '')
+                          : Number.isNaN(params.pitch)
+                            ? ''
+                            : params.pitch
                     }
                     onChange={(e) =>
                       update(
@@ -374,11 +386,13 @@ export default function Home() {
               <p className="field-note" id="pitch-guidance">
                 {params.windingType === 'concentric'
                   ? '最大节距指最外侧线圈的槽数跨度；同组线圈共中心、节距不同。各线圈实际节距见下方明细。自动按极距及相带宽度向下搜索。'
-                  : params.windingType === 'chain'
-                    ? '单层链式采用相同大小的线圈，奇数节距交替占槽。支持 q = 1 或偶数整数；奇数 q > 1 的交叉链式另属一种排列，当前不自动代替。'
-                    : automaticPitch
-                      ? '从不超过一极距的最大整槽节距向下检查，采用首个有效方案；单层仅选奇数，极距不足一槽时试 1 槽。此规则不优化谐波或端部长度。'
-                      : '节距按槽数之差计：1 → 9 为 8 槽。'}
+                  : params.windingType === 'crossChain'
+                    ? '每极每相 3 槽。每相沿圆周交替放置双圈组和单圈组，双圈组各跨 8 槽，单圈组跨 7 槽。'
+                    : params.windingType === 'chain'
+                      ? '等尺寸线圈以奇数节距交替占槽，适用于 q = 1 或偶数整数。q = 3 时可选单层交叉式。'
+                      : automaticPitch
+                        ? '从不超过一极距的最大整槽节距向下检查，采用首个有效方案；单层仅选奇数，极距不足一槽时试 1 槽。此规则不优化谐波或端部长度。'
+                        : '节距按槽数之差计：1 → 9 为 8 槽。'}
               </p>
               <div className="field full">
                 <span>端子接法</span>
@@ -475,7 +489,9 @@ export default function Home() {
                 className="preset"
                 onClick={() => run(p.params)}
               >
-                <span className="preset-number">0{i + 1}</span>
+                <span className="preset-number">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
                 <span>
                   {p.name}
                   <small>{p.note}</small>
@@ -652,7 +668,7 @@ export default function Home() {
           <section className="method" id="method">
             <Sparkles size={17} />
             <div>
-              <h3>有依据的设计，可追溯的连接。</h3>
+              <h3>计算方法与接线图参考</h3>
               <p>
                 基于槽电势星形图与线圈边复数求和，参考{' '}
                 <a
@@ -671,6 +687,38 @@ export default function Home() {
                   SWAT-EM 理论
                 </a>
                 。当前结果用于绕组连接与理想电势分析，商业软件一致性和制造工艺仍需进一步验证。
+              </p>
+              <p>
+                示例 10、11 的线圈组与节距取自
+                <a
+                  href="https://mooc1.chaoxing.com/mooc-ans/ztnodedetailcontroller/visitnodedetail?courseId=214683566&knowledgeId=356191785"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  《几种常见三相异步电动机定子绕组下线及连接方法》图
+                  10-29、10-31
+                </a>
+                。
+              </p>
+              <p>
+                示例 12 可与乐洪宾
+                <a
+                  href="https://www.cmpedu.com/books/book/5602143.htm"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  《电机绕组接线图实例详解与设计》第 1-2 例
+                </a>
+                核对三只线圈的槽对。
+                按电机型号查找绕组数据与接线图，可参阅姜孝定
+                <a
+                  href="https://www.cmpedu.com/books/book/5602766.htm"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  《三相异步电动机绕组图册》
+                </a>
+                。
               </p>
             </div>
           </section>

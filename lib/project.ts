@@ -31,7 +31,9 @@ export function encodeProject(d: Winding): string {
         pitch:
           d.params.windingType === 'concentric'
             ? 'maximum absolute coil span in slots'
-            : 'difference in slots',
+            : d.params.windingType === 'crossChain'
+              ? 'large coil span 8 slots; small coil span 7 slots'
+              : 'difference in slots',
         coilSpan: 'signed unwrapped return slot minus go slot',
         current: 'phase peak amperes',
         factor: 'absolute spatial winding factor',
@@ -40,7 +42,9 @@ export function encodeProject(d: Winding): string {
             ? 'three-phase equal-turn concentric groups'
             : d.params.windingType === 'chain'
               ? 'three-phase single-layer equal-pitch chain'
-              : 'three-phase equal-turn equal-pitch',
+              : d.params.windingType === 'crossChain'
+                ? 'three-phase single-layer crossed chain'
+                : 'three-phase equal-turn equal-pitch',
       },
     },
     null,
@@ -73,7 +77,7 @@ export function decodeProject(text: string): Params {
     doc.params.windingType !== 'lap'
   )
     throw new Error(
-      'E_FILE_SCHEMA：同心式及链式方案需要 v2 格式，避免旧版按叠绕解读。',
+      'E_FILE_SCHEMA：同心式、链式及交叉式方案需要 v2 格式，避免旧版按叠绕解读。',
     );
   const p = Object.fromEntries(
     Object.keys(DEFAULTS).map((k) => [

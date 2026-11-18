@@ -219,7 +219,11 @@ export function unrolledLayout(
         14 *
           (groupLevels.get(c.group ?? c.id)! +
             groupSpans.get(c.group ?? c.id)!.indexOf(Math.abs(c.span)))
-      : Math.min(72, Math.max(38, Math.abs(c.span) * step * 0.22));
+      : windingType === 'crossChain'
+        ? Math.abs(c.span) === 8
+          ? 64
+          : 44
+        : Math.min(72, Math.max(38, Math.abs(c.span) * step * 0.22));
   const formHeight = Math.max(0, ...visible.map(formDepth));
   const top = windingType === 'lap' ? (toothCoils ? 172 : 98) : 60 + formHeight,
     bottom = top + 148;

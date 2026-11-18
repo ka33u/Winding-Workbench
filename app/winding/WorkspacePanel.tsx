@@ -84,6 +84,12 @@ export function WorkspacePanel({
         .filter((c) => c.group === selectedCoil.group)
         .sort((a, b) => Math.abs(a.span) - Math.abs(b.span))
     : [];
+  const groupName =
+    design.params.windingType === 'concentric'
+      ? '同心组'
+      : selectedGroup.length === 2
+        ? '双圈组'
+        : '单圈组';
   const branchCoils = selectedCoil
     ? coils.filter(
         (c) => c.phase === selectedCoil.phase && c.path === selectedCoil.path,
@@ -234,7 +240,9 @@ export function WorkspacePanel({
               <p className="field-note" aria-label="绕组结构说明">
                 {design.params.windingType === 'concentric'
                   ? '同组线圈共中心、按实际节距内外嵌套；选中线圈可对照同组内外圈。'
-                  : '等尺寸线圈交替嵌放；上下端部构成链环，细回线下方为串联跨接。'}
+                  : design.params.windingType === 'crossChain'
+                    ? '双圈组内两只线圈各跨 8 槽，单圈组跨 7 槽。选中线圈可查看同组槽对和下一处跨接。'
+                    : '等尺寸线圈交替嵌放；上下端部构成链环，细回线下方为串联跨接。'}
                 {!showCoilReturns && ' 开启“线圈回路线”可查看完整线圈形状。'}
               </p>
             )}
@@ -473,14 +481,22 @@ export function WorkspacePanel({
               <X size={15} />
             </button>
             {selectedGroup.length > 0 && (
-              <div className="coil-relations" aria-label="同心组内外圈">
-                <span>同心组 · 从内圈到外圈</span>
+              <div
+                className="coil-relations"
+                aria-label={groupName === '同心组' ? '同心组内外圈' : groupName}
+              >
+                <span>
+                  {groupName} ·{' '}
+                  {groupName === '同心组'
+                    ? '从内圈到外圈'
+                    : `节距 ${Math.abs(selectedCoil.span)} 槽`}
+                </span>
                 <div className="coil-relation-buttons">
                   {selectedGroup.map((c) => (
                     <button
                       key={c.id}
                       aria-pressed={c.id === selected}
-                      aria-label={`查看同心组线圈 ${c.id}，节距 ${Math.abs(c.span)} 槽`}
+                      aria-label={`查看${groupName}线圈 ${c.id}，节距 ${Math.abs(c.span)} 槽`}
                       disabled={!coils.some((visible) => visible.id === c.id)}
                       title={`${c.go}槽 L${c.goLayer} → ${c.back}槽 L${c.backLayer}${coils.some((visible) => visible.id === c.id) ? '' : ' · 切换全部支路可查看'}`}
                       onClick={() => c.id !== selected && pick(c.id)}

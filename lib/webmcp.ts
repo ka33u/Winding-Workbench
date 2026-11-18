@@ -1,5 +1,6 @@
 import {
   DEFAULTS,
+  WINDING_TYPE_NAMES,
   generate,
   type Params,
   type Phase,
@@ -39,7 +40,10 @@ export function windingTools(actions: WindingActions): BrowserTool[] {
           poles: { type: 'integer', minimum: 2, maximum: 240 },
           paths: { type: 'integer', minimum: 1, maximum: 120 },
           layers: { type: 'integer', enum: [1, 2] },
-          windingType: { type: 'string', enum: ['lap', 'concentric', 'chain'] },
+          windingType: {
+            type: 'string',
+            enum: Object.keys(WINDING_TYPE_NAMES),
+          },
           pitch: { type: 'integer' },
           turns: { type: 'integer' },
           connection: { type: 'string', enum: ['star', 'delta'] },

@@ -330,7 +330,7 @@ export function LinearWinding({
             data-coil-group={coil.group}
             opacity={fade(coil.id)}
           >
-            <title>{`${coil.id}：${coil.go}槽 L${coil.goLayer} → ${coil.back}槽 L${coil.backLayer}，${coil.turns}匝${coil.group ? `，同心组 ${coil.group}，节距 ${Math.abs(coil.span)}` : ''}`}</title>
+            <title>{`${coil.id}：${coil.go}槽 L${coil.goLayer} → ${coil.back}槽 L${coil.backLayer}，${coil.turns}匝${coil.group ? `，${design.params.windingType === 'concentric' ? '同心组' : Math.abs(coil.span) === 8 ? '双圈组' : '单圈组'} ${coil.group}，节距 ${Math.abs(coil.span)}` : ''}`}</title>
             {showCoilReturns &&
               returnPieces.map((points, i) => (
                 <path

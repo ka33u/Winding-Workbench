@@ -8,6 +8,8 @@ import {
 
 /** A conservative convenience search, not an electromagnetic optimization. */
 export function autoPitchCandidates(p: Params): number[] {
+  if (p.windingType === 'crossChain')
+    return validateParams({ ...p, pitch: 8 }).length ? [] : [8];
   // Use an admissible pitch to check all pitch-independent constraints first.
   if (validateParams({ ...p, pitch: 1 }).length) return [];
   const maximum = Math.min(
@@ -27,6 +29,7 @@ export function autoPitchCandidates(p: Params): number[] {
 }
 
 export function generateAuto(p: Params): Result {
+  if (p.windingType === 'crossChain') return generate({ ...p, pitch: 8 });
   const start = performance.now();
   const errors = validateParams({ ...p, pitch: 1 });
   if (errors.length) return { ok: false, issues: errors };
